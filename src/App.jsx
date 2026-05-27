@@ -19,7 +19,8 @@ function AppRoutes() {
     const ssoToken = params.get('sso')
 
     if (ssoToken) {
-      fetch('/api/auth/verify-sso/', {
+      const API = import.meta.env.VITE_API_URL || ''
+      fetch(`${API}/api/auth/verify-sso/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sso: ssoToken }),
