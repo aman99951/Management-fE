@@ -1,5 +1,9 @@
 const API = import.meta.env.VITE_API_URL || ''
 
+function getToken() {
+  return localStorage.getItem('sso_token')
+}
+
 function getCSRFToken() {
   const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/)
   return match ? decodeURIComponent(match[1]) : ''
@@ -8,6 +12,10 @@ function getCSRFToken() {
 async function request(path, options = {}) {
   const method = (options.method || 'GET').toUpperCase()
   const headers = { 'Content-Type': 'application/json', ...options.headers }
+  const token = getToken()
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
   if (method !== 'GET') {
     headers['X-CSRFToken'] = getCSRFToken()
   }

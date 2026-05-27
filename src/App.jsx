@@ -15,6 +15,32 @@ function AppRoutes() {
   const navigate = useNavigate()
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const ssoToken = params.get('sso')
+
+    if (ssoToken) {
+      const API = import.meta.env.VITE_API_URL || ''
+      fetch(`${API}/api/auth/verify-sso/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sso: ssoToken }),
+        credentials: 'include',
+      }).then(res => res.json()).then(data => {
+        if (data.authenticated && data.token) {
+          localStorage.setItem('sso_token', data.token)
+          window.history.replaceState({}, '', window.location.pathname)
+          window.location.reload()
+        } else {
+          setSession({ authenticated: false })
+          setLoading(false)
+        }
+      }).catch(() => {
+        setSession({ authenticated: false })
+        setLoading(false)
+      })
+      return
+    }
+
     api.getSession().then(data => {
       setSession(data)
       setLoading(false)
