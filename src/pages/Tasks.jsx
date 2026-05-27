@@ -26,9 +26,9 @@ const statusConfig = {
     classes: 'bg-blue-50 text-blue-700 ring-1 ring-blue-600/20',
     bar: 'bg-blue-500',
     icon: (
-      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth={2.5} fill="none" />
       </svg>
     ),
   },
