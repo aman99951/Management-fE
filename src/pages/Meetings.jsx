@@ -62,16 +62,13 @@ export default function Meetings() {
     setGeneratingTaskId(id)
     try {
       const result = await api.generateTasksForMeeting(id)
-      if (result.status === 'exists') {
+      if (result.status === 'exists' || result.status === 'created') {
         navigate(`/tasks?meeting=${id}`)
       } else {
-        setTimeout(async () => {
-          const updated = await api.getMeetings()
-          setMeetings(updated.filter(m => m.fathom_recording_id))
-          setGeneratingTaskId(null)
-        }, 15000)
+        setGeneratingTaskId(null)
       }
-    } catch {
+    } catch (e) {
+      alert(e.message || 'Failed to generate tasks')
       setGeneratingTaskId(null)
     }
   }
