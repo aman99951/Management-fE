@@ -439,7 +439,7 @@ export default function Tasks() {
                                   </span>
                                 )}
                                 {t.created_at && (
-                                  <span>{new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                                  <span>{new Date(t.created_at).toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric' })}</span>
                                 )}
                               </div>
                               <div className="flex items-center gap-1.5">
@@ -471,7 +471,7 @@ export default function Tasks() {
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center gap-2">
                                             <span className="text-xs font-semibold text-[var(--color-text-primary)]">{c.author_name || 'Unknown'}</span>
-                                            <span className="text-[10px] text-[var(--color-text-muted)]">{new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                                            <span className="text-[10px] text-[var(--color-text-muted)]">{new Date(c.created_at).toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric' })}</span>
                                           </div>
                                           <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">{c.text}</p>
                                         </div>
@@ -655,7 +655,7 @@ function TaskDetailModal({ task, employees, comments, onClose, onStatusChange, o
             <div className="p-3 bg-[var(--color-badge-bg)] rounded-xl border border-[var(--color-card-border)]">
               <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Created</p>
               <p className="mt-1 text-sm font-medium text-[var(--color-text-primary)]">
-                {task.created_at ? new Date(task.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
+                {task.created_at ? new Date(task.created_at).toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
               </p>
             </div>
             <div className="p-3 bg-[var(--color-badge-bg)] rounded-xl border border-[var(--color-card-border)]">
@@ -668,7 +668,7 @@ function TaskDetailModal({ task, employees, comments, onClose, onStatusChange, o
               <div className="p-3 bg-[var(--color-badge-bg)] rounded-xl border border-[var(--color-card-border)]">
                 <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Due Date</p>
                 <p className="mt-1 text-sm font-medium text-[var(--color-text-primary)]">
-                  {new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  {new Date(task.due_date).toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', year: 'numeric' })}
                 </p>
               </div>
             )}
@@ -692,7 +692,7 @@ function TaskDetailModal({ task, employees, comments, onClose, onStatusChange, o
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-[var(--color-text-primary)]">{c.author_name || 'Unknown'}</span>
-                        <span className="text-xs text-[var(--color-text-muted)]">{new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        <span className="text-xs text-[var(--color-text-muted)]">{new Date(c.created_at).toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric' })}</span>
                       </div>
                       <p className="text-sm text-[var(--color-text-secondary)] mt-0.5">{c.text}</p>
                     </div>

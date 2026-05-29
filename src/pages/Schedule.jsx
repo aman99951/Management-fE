@@ -140,10 +140,13 @@ export default function Schedule() {
     )
   }
 
+  const istOpts = { timeZone: 'Asia/Kolkata' }
+
   const formatDateTime = (iso) => {
     if (!iso) return ''
     const d = new Date(iso)
     return d.toLocaleDateString('en-US', {
+      ...istOpts,
       weekday: 'short',
       month: 'short', day: 'numeric',
       hour: 'numeric', minute: '2-digit',
@@ -153,6 +156,7 @@ export default function Schedule() {
   const formatTime = (iso) => {
     if (!iso) return ''
     return new Date(iso).toLocaleTimeString('en-US', {
+      ...istOpts,
       hour: 'numeric', minute: '2-digit',
     })
   }
@@ -160,6 +164,7 @@ export default function Schedule() {
   const formatDate = (iso) => {
     if (!iso) return ''
     return new Date(iso).toLocaleDateString('en-US', {
+      ...istOpts,
       weekday: 'short', month: 'short', day: 'numeric',
     })
   }

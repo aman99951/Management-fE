@@ -234,7 +234,7 @@ export default function Meetings() {
                       <div>
                         <h3 className="font-semibold text-[var(--color-text-primary)]">{m.title}</h3>
                         <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                          {m.recorded_at && new Date(m.recorded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {m.recorded_at && new Date(m.recorded_at).toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </div>
