@@ -26,7 +26,7 @@ async function request(path, options = {}) {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || `Request failed: ${res.status}`)
+    throw new Error(err.detail || err.error || `Request failed: ${res.status}`)
   }
   return res.json()
 }
@@ -73,4 +73,40 @@ export const api = {
     request('/api/fathom/sync/', { method: 'POST' }),
   generateAITasks: () =>
     request('/api/tasks/generate-ai/', { method: 'POST' }),
+
+  // Google Calendar / Google Meet
+  getGoogleCalendarStatus: () => request('/api/google-calendar/status/'),
+  getGoogleCalendarAuthUrl: () => request('/api/google-calendar/auth-url/'),
+  googleCalendarOAuthCallback: (code) =>
+    request('/api/google-calendar/oauth/callback/', { method: 'POST', body: JSON.stringify({ code }) }),
+  createGoogleMeet: (data) =>
+    request('/api/google-calendar/create-meet/', { method: 'POST', body: JSON.stringify(data) }),
+  listGoogleCalendarEvents: () => request('/api/google-calendar/events/'),
+  syncGoogleCalendar: () =>
+    request('/api/google-calendar/sync/', { method: 'POST' }),
+  disconnectGoogleCalendar: () =>
+    request('/api/google-calendar/disconnect/', { method: 'POST' }),
+
+  // Schedule (Scheduled Meetings)
+  getScheduledMeetings: () => request('/api/schedule/'),
+  getScheduledMeeting: (id) => request(`/api/schedule/${id}/`),
+  createScheduledMeeting: (data) =>
+    request('/api/schedule/', { method: 'POST', body: JSON.stringify(data) }),
+  updateScheduledMeeting: (id, data) =>
+    request(`/api/schedule/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteScheduledMeeting: (id) =>
+    request(`/api/schedule/${id}/`, { method: 'DELETE' }),
+  inviteToMeeting: (id, employeeIds) =>
+    request(`/api/schedule/${id}/invite/`, { method: 'POST', body: JSON.stringify({ employee_ids: employeeIds }) }),
+  createMeetLinkForSchedule: (id) =>
+    request(`/api/schedule/${id}/create_meet_link/`, { method: 'POST' }),
+  cancelScheduledMeeting: (id) =>
+    request(`/api/schedule/${id}/cancel/`, { method: 'POST' }),
+  completeScheduledMeeting: (id) =>
+    request(`/api/schedule/${id}/complete/`, { method: 'POST' }),
+
+  // Notifications
+  getNotifications: () => request('/api/notifications/'),
+  markNotificationsRead: (ids) =>
+    request('/api/notifications/mark-read/', { method: 'POST', body: JSON.stringify({ ids }) }),
 }

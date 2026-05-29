@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { api } from '../api'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+  { to: '/schedule', label: 'Schedule', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
   { to: '/meetings', label: 'Meetings', icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
   { to: '/tasks', label: 'Tasks', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
   { to: '/employees', label: 'Employees', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z' },
@@ -12,6 +14,41 @@ const navItems = [
 export default function Layout({ children, session, onLogout }) {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const notifRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    if (!session?.authenticated) return
+    const fetchNotifications = () => {
+      api.getNotifications().then(data => {
+        setNotifications(data.notifications || [])
+        setUnreadCount(data.unread_count || 0)
+      }).catch(() => {})
+    }
+    fetchNotifications()
+    const interval = setInterval(fetchNotifications, 30000)
+    return () => clearInterval(interval)
+  }, [session])
+
+  const handleNotifClick = () => {
+    setNotifOpen(!notifOpen)
+    if (!notifOpen && unreadCount > 0) {
+      api.markNotificationsRead([]).then(() => {
+        setUnreadCount(0)
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+      }).catch(() => {})
+    }
+  }
 
   const pageTitle = navItems.find(i => i.to === '/' ? location.pathname === '/' : location.pathname.startsWith(i.to))?.label || ''
 
@@ -73,8 +110,8 @@ export default function Layout({ children, session, onLogout }) {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 h-screen">
-        <header className="h-16 bg-white/80 backdrop-blur-md border-b border-[var(--color-header-border)] flex items-center px-4 sm:px-6 gap-4 shrink-0 sticky top-0 z-10">
-          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 text-[var(--color-text-secondary)] transition-colors">
+        <header className="h-16 bg-[var(--color-header-bg)] backdrop-blur-md border-b border-[var(--color-header-border)] flex items-center px-4 sm:px-6 gap-4 shrink-0 sticky top-0 z-10">
+          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-[var(--color-card-border)] text-[var(--color-text-secondary)] transition-colors">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
@@ -90,13 +127,62 @@ export default function Layout({ children, session, onLogout }) {
 
           <div className="flex-1" />
 
-          <div className="flex items-center gap-2">
-            <button className="p-2 rounded-lg hover:bg-gray-100 text-[var(--color-text-secondary)] transition-colors relative">
+          <div className="flex items-center gap-2 relative" ref={notifRef}>
+            <button
+              onClick={handleNotifClick}
+              className="p-2 rounded-lg hover:bg-[var(--color-card-border)] text-[var(--color-text-secondary)] transition-colors relative"
+            >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[var(--color-danger)] rounded-full ring-2 ring-white" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[var(--color-danger)] rounded-full ring-2 ring-[var(--color-card-bg)]" />
+              )}
             </button>
+
+            {notifOpen && (
+              <div className="absolute top-full right-0 mt-2 w-80 bg-[var(--color-card-bg)] rounded-2xl shadow-xl border border-[var(--color-card-border)] overflow-hidden z-50 animate-scale-in">
+                <div className="p-4 border-b border-[var(--color-card-border)] flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Notifications</h3>
+                  {unreadCount > 0 && (
+                    <span className="text-xs bg-[var(--color-primary-50)] text-[var(--color-primary-700)] px-2 py-0.5 rounded-full font-medium">{unreadCount} new</span>
+                  )}
+                </div>
+                <div className="max-h-72 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-6 text-center">
+                      <svg className="w-8 h-8 text-[var(--color-text-muted)] mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                      <p className="text-sm text-[var(--color-text-muted)]">No notifications</p>
+                    </div>
+                  ) : (
+                    notifications.map((n, i) => (
+                      <div
+                        key={n.id}
+                        className={`p-4 border-b border-[var(--color-card-border)] hover:bg-[var(--color-badge-bg)] transition-colors ${
+                          !n.is_read ? 'bg-[var(--color-primary-50)]/10' : ''
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            !n.is_read ? 'bg-[var(--color-primary-100)] text-[var(--color-primary-700)]' : 'bg-[var(--color-badge-bg)] text-[var(--color-badge-text)]'
+                          }`}>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-[var(--color-text-primary)]">{n.title}</p>
+                            <p className="text-xs text-[var(--color-text-muted)] mt-0.5 line-clamp-2">{n.message}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </header>
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">{children}</main>

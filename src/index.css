@@ -1,33 +1,33 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary-50: #ecfdf5;
-  --color-primary-100: #d1fae5;
-  --color-primary-200: #a7f3d0;
-  --color-primary-300: #6ee7b7;
-  --color-primary-400: #34d399;
-  --color-primary-500: #0d9488;
-  --color-primary-600: #0f766e;
-  --color-primary-700: #115e59;
-  --color-primary-800: #134e4a;
-  --color-primary-900: #042f2e;
-  --color-sidebar: #0c1222;
-  --color-sidebar-hover: #1a2332;
-  --color-sidebar-active: #0d9488;
-  --color-header-bg: rgba(255,255,255,0.72);
-  --color-header-border: #e2e8f0;
-  --color-page-bg: #f0f2f5;
-  --color-card-bg: #ffffff;
-  --color-card-border: #e2e8f0;
-  --color-text-primary: #0b1a2e;
-  --color-text-secondary: #55657b;
-  --color-text-muted: #94a3b8;
-  --color-badge-bg: #f1f5f9;
-  --color-badge-text: #475569;
-  --color-danger: #ef4444;
-  --color-danger-hover: #dc2626;
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
+  --color-primary-50: #fffbeb;
+  --color-primary-100: #fef3c7;
+  --color-primary-200: #fde68a;
+  --color-primary-300: #fcd34d;
+  --color-primary-400: #fbbf24;
+  --color-primary-500: #d4a017;
+  --color-primary-600: #b8860b;
+  --color-primary-700: #9a7209;
+  --color-primary-800: #7c5c07;
+  --color-primary-900: #5c4405;
+  --color-sidebar: #0a0a0a;
+  --color-sidebar-hover: #1a1a1a;
+  --color-sidebar-active: #d4a017;
+  --color-header-bg: rgba(30,30,34,0.92);
+  --color-header-border: #2a2a2e;
+  --color-page-bg: #121214;
+  --color-card-bg: #1c1c20;
+  --color-card-border: #2a2a2e;
+  --color-text-primary: #f0f0f0;
+  --color-text-secondary: #a0a0a8;
+  --color-text-muted: #6a6a72;
+  --color-badge-bg: #2a2a2e;
+  --color-badge-text: #c0c0c8;
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-success: #16a34a;
+  --color-warning: #d4a017;
 }
 
 body {
@@ -44,11 +44,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #3a3a3e;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #5a5a5e;
 }
 
 @keyframes fade-in {

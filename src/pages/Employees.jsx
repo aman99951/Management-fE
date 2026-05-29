@@ -32,8 +32,8 @@ export default function Employees() {
         <div className="mb-8"><h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Employees</h1></div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1,2,3].map(i => (
-            <div key={i} className="bg-white border border-gray-200/60 rounded-2xl p-5 animate-pulse">
-              <div className="flex items-center gap-3"><div className="w-12 h-12 rounded-full bg-gray-200" /><div className="flex-1"><div className="h-4 bg-gray-200 rounded w-24 mb-2" /><div className="h-3 bg-gray-100 rounded w-32" /></div></div>
+            <div key={i} className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl p-5 animate-pulse">
+              <div className="flex items-center gap-3"><div className="w-12 h-12 rounded-full bg-[var(--color-card-border)]" /><div className="flex-1"><div className="h-4 bg-[var(--color-card-border)] rounded w-24 mb-2" /><div className="h-3 bg-[var(--color-badge-bg)] rounded w-32" /></div></div>
             </div>
           ))}
         </div>
@@ -50,7 +50,7 @@ export default function Employees() {
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[var(--color-primary-600)] to-[var(--color-primary-500)] text-white text-sm font-medium rounded-xl hover:from-[var(--color-primary-700)] hover:to-[var(--color-primary-600)] transition-all shadow-sm shadow-[var(--color-primary-500)]/20"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--color-primary-600)] text-white text-sm font-medium rounded-xl hover:bg-[var(--color-primary-700)] transition-all shadow-sm shadow-black/10"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -60,27 +60,27 @@ export default function Employees() {
       </div>
 
       {showForm && (
-        <form onSubmit={add} className="bg-white border border-gray-200/60 rounded-2xl p-6 mb-6 shadow-sm animate-scale-in">
+        <form onSubmit={add} className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl p-6 mb-6 shadow-sm animate-scale-in">
           <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-4">New Employee</h3>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <input placeholder="Full name" value={name} onChange={e => setName(e.target.value)} required
-              className="px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)] focus:border-transparent transition-shadow" />
+              className="px-3.5 py-2.5 border border-[var(--color-card-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)] focus:border-transparent transition-shadow" />
             <input placeholder="Email address" type="email" value={email} onChange={e => setEmail(e.target.value)} required
-              className="px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)] focus:border-transparent transition-shadow" />
+              className="px-3.5 py-2.5 border border-[var(--color-card-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)] focus:border-transparent transition-shadow" />
             <input placeholder="Team (optional)" value={team} onChange={e => setTeam(e.target.value)}
-              className="px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)] focus:border-transparent transition-shadow" />
+              className="px-3.5 py-2.5 border border-[var(--color-card-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)] focus:border-transparent transition-shadow" />
             <div className="flex gap-2">
-              <button type="submit" className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[var(--color-primary-600)] to-[var(--color-primary-500)] text-white text-sm font-medium rounded-xl hover:from-[var(--color-primary-700)] hover:to-[var(--color-primary-600)] transition-all">Save</button>
-              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2.5 bg-white border border-gray-200 text-[var(--color-text-secondary)] text-sm font-medium rounded-xl hover:bg-gray-50 transition-all">Cancel</button>
+              <button type="submit" className="flex-1 px-4 py-2.5 bg-[var(--color-primary-600)] text-white text-sm font-medium rounded-xl hover:bg-[var(--color-primary-700)] transition-all">Save</button>
+              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2.5 bg-[var(--color-card-bg)] border border-[var(--color-card-border)] text-[var(--color-text-secondary)] text-sm font-medium rounded-xl hover:bg-[var(--color-badge-bg)] transition-all">Cancel</button>
             </div>
           </div>
         </form>
       )}
 
       {employees.length === 0 ? (
-        <div className="bg-white border border-gray-200/60 rounded-2xl p-16 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center mx-auto mb-5">
-            <svg className="w-8 h-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+        <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl p-16 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-[var(--color-badge-bg)] flex items-center justify-center mx-auto mb-5">
+            <svg className="w-8 h-8 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
             </svg>
           </div>
@@ -92,10 +92,10 @@ export default function Employees() {
           {employees.map(e => {
             const initials = e.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
             return (
-              <div key={e.id} className="group bg-white border border-gray-200/60 rounded-2xl p-5 hover:shadow-lg hover:border-gray-300/80 transition-all duration-200">
+              <div key={e.id} className="group bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl p-5 hover:shadow-lg hover:border-[var(--color-text-muted)]/30 transition-all duration-200">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[var(--color-primary-400)] to-[var(--color-primary-600)] text-white flex items-center justify-center text-sm font-semibold shadow-sm group-hover:scale-105 transition-transform">
+                    <div className="w-12 h-12 rounded-full bg-[var(--color-primary-600)] text-white flex items-center justify-center text-sm font-semibold shadow-sm group-hover:scale-105 transition-transform">
                       {initials}
                     </div>
                     <div>
