@@ -16,7 +16,7 @@ export default function Schedule() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [page, setPage] = useState(1)
-  const perPage = 10
+  const perPage = 6
 
   const [formData, setFormData] = useState({
     title: '',
@@ -731,12 +731,7 @@ export default function Schedule() {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                               </svg>
                             </button>
-                            <button onClick={() => handleCreateMeetLink(meeting.id)}
-                              className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600 transition-all" title="Create Meet link">
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                              </svg>
-                            </button>
+
                             <button onClick={() => handleComplete(meeting.id)}
                               className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600 transition-all" title="Mark completed">
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
