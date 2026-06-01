@@ -15,6 +15,8 @@ export default function Schedule() {
   const [syncingAll, setSyncingAll] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [page, setPage] = useState(1)
+  const perPage = 10
 
   const [formData, setFormData] = useState({
     title: '',
@@ -525,7 +527,7 @@ export default function Schedule() {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty state — no meetings at all */}
       {meetings.length === 0 ? (
         <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl p-20 text-center">
           <div className="w-20 h-20 rounded-2xl bg-[var(--color-primary-100)] flex items-center justify-center mx-auto mb-6">
@@ -557,7 +559,7 @@ export default function Schedule() {
             <input
               type="text"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { setSearch(e.target.value); setPage(1) }}
               placeholder="Search meetings..."
               className="w-full text-sm pl-9 pr-3.5 py-2.5 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)] focus:border-transparent transition-all placeholder:text-[var(--color-text-muted)]"
             />
@@ -568,7 +570,7 @@ export default function Schedule() {
             </svg>
             <select
               value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
+              onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
               className="text-sm pl-9 pr-8 py-2.5 rounded-xl border border-[var(--color-card-border)] bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] cursor-pointer appearance-none hover:border-[var(--color-primary-400)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)] min-w-[140px]"
               style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%236a6a72'%3e%3cpath d='M8 11L4 7h8l-4 4z'/%3e%3c/svg%3e")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '14px 14px' }}
             >
@@ -583,11 +585,17 @@ export default function Schedule() {
       </div>
 
       {(() => {
-        const filtered = meetings.filter(m => {
+        const sorted = [...meetings].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+        const filtered = sorted.filter(m => {
           const matchesSearch = !search || m.title?.toLowerCase().includes(search.toLowerCase())
           const matchesStatus = statusFilter === 'all' || m.status === statusFilter
           return matchesSearch && matchesStatus
         })
+
+        const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
+        const currentPage = Math.min(page, totalPages)
+        const start = (currentPage - 1) * perPage
+        const paged = filtered.slice(start, start + perPage)
 
         if (filtered.length === 0) {
           return (
@@ -600,7 +608,7 @@ export default function Schedule() {
               <p className="text-lg font-semibold text-[var(--color-text-primary)]">No meetings match your filters</p>
               <p className="text-sm text-[var(--color-text-muted)] mt-2">Try adjusting your search or clearing the status filter.</p>
               <button
-                onClick={() => { setSearch(''); setStatusFilter('all') }}
+                onClick={() => { setSearch(''); setStatusFilter('all'); setPage(1) }}
                 className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-[var(--color-badge-bg)] text-[var(--color-text-secondary)] text-sm font-medium rounded-xl hover:bg-[var(--color-card-border)] transition-all"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -613,212 +621,203 @@ export default function Schedule() {
         }
 
         return (
-        <div className="grid grid-cols-1 gap-4">
-          {filtered.map(meeting => {
-            const sc = statusColors[meeting.status] || statusColors.scheduled
-
-            return (
-              <div
-                key={meeting.id}
-                className="group bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl p-5 hover:border-[var(--color-primary-400)]/30 hover:shadow-lg transition-all duration-200"
-              >
-                <div className="flex flex-col lg:flex-row lg:items-start gap-4">
-                  {/* Status indicator line */}
-                  <div className={`hidden lg:block w-1 h-full min-h-[4rem] rounded-full shrink-0 ${sc.bg}`} />
-
-                  {/* Main content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <h3 className="text-base font-semibold text-[var(--color-text-primary)] group-hover:text-[var(--color-primary-600)] transition-colors">
-                            {meeting.title}
-                          </h3>
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ring-1 ${sc.bg} ${sc.text} ${sc.ring}`}>
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d={sc.icon} />
-                            </svg>
-                            {meeting.status?.charAt(0).toUpperCase() + meeting.status?.slice(1)}
-                          </span>
-                            {meeting.meeting_url && meeting.status !== 'cancelled' && (
-                              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                </svg>
-                                Meet link ready
-                              </span>
-                            )}
-                            {meeting.google_event_id && meeting.status !== 'cancelled' && (
-                              <span className="inline-flex items-center gap-1 text-xs text-[var(--color-primary-600)] font-medium">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                On Calendar
-                              </span>
-                            )}
-                        </div>
-
-                        {/* Date, time, duration strip */}
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3">
-                          <div className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)]">
-                            <svg className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <span>{formatDate(meeting.start_time)}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)]">
-                            <svg className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span>{formatTime(meeting.start_time)} – {formatTime(meeting.end_time)}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)]">
-                            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span>{getDuration(meeting.start_time, meeting.end_time)}</span>
-                          </div>
-                        </div>
-
-                        {/* Description / location / link row */}
-                        {(meeting.description || meeting.location || (meeting.meeting_url && meeting.status !== 'cancelled')) && (
-                          <div className="mt-3 space-y-1">
-                            {meeting.description && (
-                              <p className="text-sm text-[var(--color-text-muted)] line-clamp-2">{meeting.description}</p>
-                            )}
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                              {meeting.location && (
-                                <span className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  </svg>
-                                  {meeting.location}
-                                </span>
-                              )}
-                              {meeting.meeting_url && meeting.status !== 'cancelled' && (
-                                <a href={meeting.meeting_url} target="_blank" rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 text-xs text-[var(--color-primary-600)] hover:text-[var(--color-primary-700)] hover:underline font-medium">
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                                  </svg>
-                                  {meeting.meeting_url}
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Bottom row: attendees + actions */}
-                    <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t border-[var(--color-card-border)]">
-                      {/* Attendees */}
+        <>
+        <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-card-border)] bg-[var(--color-badge-bg)]/50">
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Title</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Date & Time</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Status</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Attendees</th>
+                  <th className="text-right px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--color-card-border)]">
+                {paged.map(meeting => (
+                  <tr key={meeting.id} className="hover:bg-[var(--color-badge-bg)]/30 transition-colors group">
+                    <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex -space-x-2">
-                          {meeting.attendees_details?.slice(0, 5).map((a, i) => (
-                            <div
-                              key={a.id}
-                              className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--color-primary-500)] to-[var(--color-primary-700)] text-white flex items-center justify-center text-[11px] font-semibold ring-2 ring-[var(--color-card-bg)] shadow-sm transition-transform hover:scale-110 hover:z-10 relative"
-                              style={{ zIndex: 5 - i }}
-                              title={a.name}
-                            >
-                              {a.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                            </div>
-                          ))}
-                          {(meeting.attendees_details?.length || 0) > 5 && (
-                            <div className="w-8 h-8 rounded-full bg-[var(--color-badge-bg)] text-[var(--color-text-secondary)] flex items-center justify-center text-[11px] font-medium ring-2 ring-[var(--color-card-bg)]">
-                              +{meeting.attendees_details.length - 5}
-                            </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-[var(--color-text-primary)] truncate max-w-[200px]">{meeting.title}</p>
+                          {meeting.description && (
+                            <p className="text-xs text-[var(--color-text-muted)] truncate max-w-[200px] mt-0.5">{meeting.description}</p>
                           )}
                         </div>
-                        
                       </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2 mt-1.5">
                         {meeting.meeting_url && meeting.status !== 'cancelled' && (
-                          <a
-                            href={meeting.meeting_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--color-primary-600)] text-white hover:bg-[var(--color-primary-700)] text-xs font-medium transition-all shadow-sm"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-500 font-medium">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                             </svg>
-                            Join
+                            Meet link
+                          </span>
+                        )}
+                        {meeting.google_event_id && meeting.status !== 'cancelled' && (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-primary-600)] font-medium">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            On Calendar
+                          </span>
+                        )}
+                        {meeting.location && (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-text-secondary)]">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            {meeting.location}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-sm text-[var(--color-text-primary)]">{formatDate(meeting.start_time)}</span>
+                        <span className="text-xs text-[var(--color-text-muted)]">
+                          {formatTime(meeting.start_time)} – {formatTime(meeting.end_time)}
+                          <span className="ml-2">({getDuration(meeting.start_time, meeting.end_time)})</span>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ring-1 ${statusColors[meeting.status]?.bg || 'bg-[var(--color-badge-bg)]'} ${statusColors[meeting.status]?.text || 'text-[var(--color-text-secondary)]'} ${statusColors[meeting.status]?.ring || 'ring-[var(--color-card-border)]'}`}>
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d={(statusColors[meeting.status] || {}).icon || 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'} />
+                        </svg>
+                        {meeting.status?.charAt(0).toUpperCase() + meeting.status?.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex -space-x-2">
+                        {meeting.attendees_details?.slice(0, 4).map((a, i) => (
+                          <div
+                            key={a.id}
+                            className="w-7 h-7 rounded-full bg-gradient-to-br from-[var(--color-primary-500)] to-[var(--color-primary-700)] text-white flex items-center justify-center text-[10px] font-semibold ring-2 ring-[var(--color-card-bg)]"
+                            style={{ zIndex: 4 - i }}
+                            title={a.name}
+                          >
+                            {a.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                          </div>
+                        ))}
+                        {(meeting.attendees_details?.length || 0) > 4 && (
+                          <div className="w-7 h-7 rounded-full bg-[var(--color-badge-bg)] text-[var(--color-text-secondary)] flex items-center justify-center text-[10px] font-medium ring-2 ring-[var(--color-card-bg)]">
+                            +{meeting.attendees_details.length - 4}
+                          </div>
+                        )}
+                        {(!meeting.attendees_details || meeting.attendees_details.length === 0) && (
+                          <span className="text-xs text-[var(--color-text-muted)]">—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {meeting.meeting_url && meeting.status !== 'cancelled' && (
+                          <a href={meeting.meeting_url} target="_blank" rel="noopener noreferrer"
+                            className="p-1.5 rounded-lg bg-[var(--color-primary-600)] text-white hover:bg-[var(--color-primary-700)] transition-all" title="Join">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
                           </a>
                         )}
                         {meeting.status === 'scheduled' && (
                           <>
-                            <button
-                              onClick={() => setShowInvite(meeting)}
-                              className="p-2 rounded-lg hover:bg-[var(--color-primary-50)] text-[var(--color-primary-600)] transition-all"
-                              title="Invite employees"
-                            >
+                            <button onClick={() => setShowInvite(meeting)}
+                              className="p-1.5 rounded-lg hover:bg-[var(--color-primary-50)] text-[var(--color-primary-600)] transition-all" title="Invite">
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                               </svg>
                             </button>
-                            <button
-                              onClick={() => handleCreateMeetLink(meeting.id)}
-                              className="p-2 rounded-lg hover:bg-emerald-50 text-emerald-600 transition-all"
-                              title="Create Google Meet link"
-                            >
+                            <button onClick={() => handleCreateMeetLink(meeting.id)}
+                              className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600 transition-all" title="Create Meet link">
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                               </svg>
                             </button>
-                            <button
-                              onClick={() => handleComplete(meeting.id)}
-                              className="p-2 rounded-lg hover:bg-emerald-50 text-emerald-600 transition-all"
-                              title="Mark completed"
-                            >
+                            <button onClick={() => handleComplete(meeting.id)}
+                              className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600 transition-all" title="Mark completed">
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             </button>
-                            <button
-                              onClick={() => {
-                                if (window.confirm('Are you sure you want to cancel this meeting?')) {
-                                  handleCancel(meeting.id)
-                                }
-                              }}
-                              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition-all"
-                              title="Cancel meeting"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <button onClick={() => { if (window.confirm('Cancel this meeting?')) handleCancel(meeting.id) }}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-red-600 transition-all" title="Cancel">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                               </svg>
-                              Cancel Meeting
                             </button>
                           </>
                         )}
                         {meeting.status !== 'scheduled' && meeting.status !== 'cancelled' && (
-                          <button
-                            onClick={() => {
-                              if (window.confirm('Are you sure you want to cancel this meeting?')) {
-                                handleCancel(meeting.id)
-                              }
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition-all"
-                            title="Cancel meeting"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <button onClick={() => { if (window.confirm('Cancel this meeting?')) handleCancel(meeting.id) }}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-red-600 transition-all" title="Cancel">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                             </svg>
-                            Cancel Meeting
                           </button>
                         )}
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4 px-1">
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Showing {start + 1}–{Math.min(start + perPage, filtered.length)} of {filtered.length}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(currentPage - 1)}
+                disabled={currentPage <= 1}
+                className={`p-2 rounded-lg text-sm transition-all ${
+                  currentPage <= 1
+                    ? 'text-[var(--color-text-muted)] cursor-not-allowed'
+                    : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-badge-bg)]'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`w-8 h-8 rounded-lg text-xs font-medium transition-all ${
+                    p === currentPage
+                      ? 'bg-[var(--color-primary-600)] text-white'
+                      : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-badge-bg)]'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                onClick={() => setPage(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+                className={`p-2 rounded-lg text-sm transition-all ${
+                  currentPage >= totalPages
+                    ? 'text-[var(--color-text-muted)] cursor-not-allowed'
+                    : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-badge-bg)]'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+        </>
         )
       })()}
       </>)}
