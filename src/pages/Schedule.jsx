@@ -11,7 +11,7 @@ export default function Schedule() {
   const [inviting, setInviting] = useState(false)
   const [notification, setNotification] = useState(null)
   const [gcConnected, setGcConnected] = useState(false)
-  const [gcGenerating, setGcGenerating] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [syncingAll, setSyncingAll] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -57,6 +57,7 @@ export default function Schedule() {
 
   const createMeeting = async (e) => {
     e.preventDefault()
+    setSubmitting(true)
     try {
       const meeting = await api.createScheduledMeeting(formData)
 
@@ -64,20 +65,21 @@ export default function Schedule() {
         try {
           const result = await api.createMeetLinkForSchedule(meeting.id)
           setMeetings(prev => [result.meeting, ...prev])
-          showNotif(`"${result.meeting.title}" synced to Google Calendar with Meet link! Fathom will auto-join.`)
+          showNotif(`"${result.meeting.title}" scheduled with Google Meet link!`)
         } catch {
           setMeetings(prev => [meeting, ...prev])
-          showNotif(`"${meeting.title}" created — Calendar sync failed. You can add a Meet link later.`)
+          showNotif(`"${meeting.title}" scheduled — Calendar sync failed. Add a Meet link later.`)
         }
       } else {
         setMeetings(prev => [meeting, ...prev])
-        showNotif(`Meeting "${meeting.title}" created successfully!`)
+        showNotif(`Meeting "${meeting.title}" scheduled successfully!`)
       }
 
       resetForm()
     } catch (err) {
       showNotif(err.message, 'error')
     }
+    setSubmitting(false)
   }
 
   const handleInvite = async (meetingId) => {
@@ -149,28 +151,6 @@ export default function Schedule() {
       showNotif(`Synced ${synced} meeting(s) to Calendar (${failed} failed)`, synced > 0 ? 'success' : 'error')
     } else {
       showNotif(`All ${synced} meeting(s) synced to Google Calendar with Meet links!`)
-    }
-  }
-
-  const handleGenerateMeetLink = async () => {
-    if (!formData.title) {
-      showNotif('Please enter a meeting title first', 'error')
-      return
-    }
-    if (!gcConnected) {
-      showNotif('Connect Google Calendar in Settings first', 'error')
-      return
-    }
-    setGcGenerating(true)
-    try {
-      const meeting = await api.createScheduledMeeting(formData)
-      const result = await api.createMeetLinkForSchedule(meeting.id)
-      setMeetings(prev => [result.meeting, ...prev])
-      showNotif(`Meeting "${result.meeting.title}" created with Google Meet link!`)
-      resetForm()
-    } catch (err) {
-      showNotif(err.message || 'Failed to generate Meet link', 'error')
-      setGcGenerating(false)
     }
   }
 
@@ -402,36 +382,20 @@ export default function Schedule() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Meeting Link</label>
-                  <div className="flex gap-2">
-                    <input
-                      value={formData.meeting_url}
-                      onChange={e => setFormData({ ...formData, meeting_url: e.target.value })}
-                      className="flex-1 px-3.5 py-2.5 border border-[var(--color-card-border)] text-[var(--color-text-primary)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)] focus:border-transparent bg-[var(--color-card-bg)]"
-                      placeholder="meet.google.com/..."
-                    />
-                    <button
-                      type="button"
-                      onClick={handleGenerateMeetLink}
-                      disabled={gcGenerating}
-                      className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-all shrink-0 ${
-                        gcGenerating
-                          ? 'bg-[var(--color-badge-bg)] text-[var(--color-text-muted)] cursor-not-allowed'
-                          : 'bg-[var(--color-primary-600)] text-white hover:bg-[var(--color-primary-700)] shadow-sm'
-                      }`}
-                      title={gcConnected ? 'Create meeting with Google Meet link' : 'Connect Google Calendar in Settings first'}
-                    >
-                      {gcGenerating ? (
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                      ) : (
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
+                  <input
+                    value={formData.meeting_url}
+                    onChange={e => setFormData({ ...formData, meeting_url: e.target.value })}
+                    className="w-full px-3.5 py-2.5 border border-[var(--color-card-border)] text-[var(--color-text-primary)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)] focus:border-transparent bg-[var(--color-card-bg)]"
+                    placeholder="meet.google.com/..."
+                  />
+                  {gcConnected && (
+                    <p className="text-xs text-emerald-500 mt-1.5 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Google Meet link will be auto-generated when you schedule
+                    </p>
+                  )}
                   {!gcConnected && (
                     <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -443,10 +407,28 @@ export default function Schedule() {
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="submit" className="flex-1 px-4 py-2.5 bg-[var(--color-primary-600)] text-white text-sm font-medium rounded-xl hover:bg-[var(--color-primary-700)] transition-all shadow-sm">
-                  Schedule Meeting
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className={`flex-1 px-4 py-2.5 text-sm font-medium rounded-xl transition-all shadow-sm ${
+                    submitting
+                      ? 'bg-[var(--color-primary-600)]/60 text-white/70 cursor-not-allowed'
+                      : 'bg-[var(--color-primary-600)] text-white hover:bg-[var(--color-primary-700)]'
+                  }`}
+                >
+                  {submitting ? (
+                    <span className="inline-flex items-center gap-2">
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Scheduling...
+                    </span>
+                  ) : (
+                    'Schedule Meeting'
+                  )}
                 </button>
-                <button type="button" onClick={resetForm} className="px-4 py-2.5 bg-[var(--color-card-bg)] border border-[var(--color-card-border)] text-[var(--color-text-secondary)] text-sm font-medium rounded-xl hover:bg-[var(--color-badge-bg)] transition-all">
+                <button type="button" onClick={resetForm} disabled={submitting} className="px-4 py-2.5 bg-[var(--color-card-bg)] border border-[var(--color-card-border)] text-[var(--color-text-secondary)] text-sm font-medium rounded-xl hover:bg-[var(--color-badge-bg)] transition-all">
                   Cancel
                 </button>
               </div>
