@@ -12,6 +12,7 @@ export default function Schedule() {
   const [notification, setNotification] = useState(null)
   const [gcConnected, setGcConnected] = useState(false)
   const [gcGenerating, setGcGenerating] = useState(false)
+  const [syncingAll, setSyncingAll] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
@@ -58,8 +59,21 @@ export default function Schedule() {
     e.preventDefault()
     try {
       const meeting = await api.createScheduledMeeting(formData)
-      setMeetings(prev => [meeting, ...prev])
-      showNotif(`Meeting "${meeting.title}" created successfully!`)
+
+      if (gcConnected) {
+        try {
+          const result = await api.createMeetLinkForSchedule(meeting.id)
+          setMeetings(prev => [result.meeting, ...prev])
+          showNotif(`"${result.meeting.title}" synced to Google Calendar with Meet link! Fathom will auto-join.`)
+        } catch {
+          setMeetings(prev => [meeting, ...prev])
+          showNotif(`"${meeting.title}" created — Calendar sync failed. You can add a Meet link later.`)
+        }
+      } else {
+        setMeetings(prev => [meeting, ...prev])
+        showNotif(`Meeting "${meeting.title}" created successfully!`)
+      }
+
       resetForm()
     } catch (err) {
       showNotif(err.message, 'error')
@@ -109,6 +123,32 @@ export default function Schedule() {
       showNotif('Google Meet link created!')
     } catch (err) {
       showNotif(err.message, 'error')
+    }
+  }
+
+  const handleSyncAllToCalendar = async () => {
+    const unsynced = meetings.filter(m => !m.google_event_id && m.status === 'scheduled')
+    if (unsynced.length === 0) {
+      showNotif('All meetings are already synced to Calendar!')
+      return
+    }
+    setSyncingAll(true)
+    let synced = 0
+    let failed = 0
+    for (const m of unsynced) {
+      try {
+        const result = await api.createMeetLinkForSchedule(m.id)
+        setMeetings(prev => prev.map(p => p.id === m.id ? result.meeting : p))
+        synced++
+      } catch {
+        failed++
+      }
+    }
+    setSyncingAll(false)
+    if (failed > 0) {
+      showNotif(`Synced ${synced} meeting(s) to Calendar (${failed} failed)`, synced > 0 ? 'success' : 'error')
+    } else {
+      showNotif(`All ${synced} meeting(s) synced to Google Calendar with Meet links!`)
     }
   }
 
@@ -220,7 +260,7 @@ export default function Schedule() {
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[var(--color-primary-100)] flex items-center justify-center">
@@ -233,17 +273,63 @@ export default function Schedule() {
               <p className="text-sm text-[var(--color-text-secondary)] mt-0.5">Create, manage, and send meeting invitations</p>
             </div>
           </div>
+          {gcConnected && (
+            <p className="text-xs text-emerald-500 mt-1.5 flex items-center gap-1.5 ml-[3.25rem]">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Google Calendar connected — new meetings sync automatically with Meet links
+            </p>
+          )}
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--color-primary-600)] text-white text-sm font-medium rounded-xl hover:bg-[var(--color-primary-700)] transition-all shadow-lg shadow-[var(--color-primary-600)]/20"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          New Meeting
-        </button>
+        <div className="flex items-center gap-2">
+          {gcConnected && meetings.filter(m => !m.google_event_id && m.status === 'scheduled').length > 0 && (
+            <button
+              onClick={handleSyncAllToCalendar}
+              disabled={syncingAll}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                syncingAll
+                  ? 'bg-[var(--color-badge-bg)] text-[var(--color-text-muted)] cursor-not-allowed'
+                  : 'bg-[var(--color-card-bg)] border border-[var(--color-card-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-badge-bg)] hover:border-[var(--color-primary-400)] shadow-sm'
+              }`}
+              title="Sync all scheduled meetings without Calendar events to Google Calendar"
+            >
+              {syncingAll ? (
+                <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Syncing...</>
+              ) : (
+                <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> Sync All to Calendar</>
+              )}
+            </button>
+          )}
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--color-primary-600)] text-white text-sm font-medium rounded-xl hover:bg-[var(--color-primary-700)] transition-all shadow-lg shadow-[var(--color-primary-600)]/20"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            New Meeting
+          </button>
+        </div>
       </div>
+              {/* Google Calendar connected status banner */}
+      {gcConnected && (
+        <div className="bg-emerald-900/20 border border-emerald-700/30 rounded-2xl p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-900/30 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-emerald-300">Google Calendar is connected</p>
+              <p className="text-xs text-emerald-400/80 mt-0.5">
+                New meetings are automatically synced with Google Meet links. Fathom will detect these events and join automatically when it's time.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Meeting Modal */}
       {showCreate && (
@@ -572,14 +658,22 @@ export default function Schedule() {
                             </svg>
                             {meeting.status?.charAt(0).toUpperCase() + meeting.status?.slice(1)}
                           </span>
-                          {meeting.meeting_url && meeting.status !== 'cancelled' && (
-                            <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                              </svg>
-                              Meet link ready
-                            </span>
-                          )}
+                            {meeting.meeting_url && meeting.status !== 'cancelled' && (
+                              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                Meet link ready
+                              </span>
+                            )}
+                            {meeting.google_event_id && meeting.status !== 'cancelled' && (
+                              <span className="inline-flex items-center gap-1 text-xs text-[var(--color-primary-600)] font-medium">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                On Calendar
+                              </span>
+                            )}
                         </div>
 
                         {/* Date, time, duration strip */}
