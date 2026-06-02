@@ -90,3 +90,6 @@ body {
 .animate-stagger > *:nth-child(5) { animation-delay: 0.18s; }
 .animate-stagger > *:nth-child(6) { animation-delay: 0.22s; }
 .animate-stagger > *:nth-child(7) { animation-delay: 0.26s; }
+
+select { color-scheme: light; }
+option { color: #e5e5e5; background: #1e1e22; }

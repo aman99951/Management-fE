@@ -159,11 +159,18 @@ export default function Tasks() {
   const toggleExpand = (id) => setExpanded(expanded === id ? null : id)
 
   const reassignTask = async (id, employeeId) => {
-    const val = employeeId ? parseInt(employeeId) : null
-    await api.updateTask(id, { assigned_to: val })
-    setTasks(prev => prev.map(t =>
-      t.id === id ? { ...t, assigned_to: val, assigned_to_name: val ? employees.find(e => e.id === val)?.name : null } : t
-    ))
+    try {
+      const val = employeeId ? parseInt(employeeId) : null
+      const updated = await api.updateTask(id, { assigned_to: val })
+      setTasks(prev => prev.map(t =>
+        t.id === id ? { ...t, assigned_to: updated.assigned_to, assigned_to_name: updated.assigned_to_name } : t
+      ))
+      if (selectedTask?.id === id) {
+        setSelectedTask(prev => prev ? { ...prev, assigned_to: updated.assigned_to, assigned_to_name: updated.assigned_to_name } : prev)
+      }
+    } catch (e) {
+      console.error('Reassign failed:', e)
+    }
   }
 
   const toggleComments = async (id) => {
@@ -633,6 +640,7 @@ function TaskDetailModal({ task, employees, comments, onClose, onStatusChange, o
                 value={task.assigned_to || ''}
                 onChange={e => onReassign(task.id, e.target.value)}
                 className="mt-1 text-sm font-medium text-[var(--color-text-primary)] bg-transparent border-none p-0 focus:outline-none cursor-pointer appearance-none w-full"
+                style={{ colorScheme: 'light' }}
               >
                 <option value="">Unassigned</option>
                 {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
