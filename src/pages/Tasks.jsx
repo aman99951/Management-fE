@@ -636,25 +636,31 @@ function TaskDetailModal({ task, employees, comments, onClose, onStatusChange, o
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div className="p-3 bg-[var(--color-badge-bg)] rounded-xl border border-[var(--color-card-border)]">
               <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Assignee</p>
-              <select
-                value={task.assigned_to || ''}
-                onChange={e => onReassign(task.id, e.target.value)}
-                className="mt-1 text-sm font-medium text-[var(--color-text-primary)] bg-transparent border-none p-0 focus:outline-none cursor-pointer appearance-none w-full"
-                style={{ colorScheme: 'light' }}
-              >
-                <option value="">Unassigned</option>
-                {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-              </select>
+              <div className="relative mt-1">
+                <select
+                  value={task.assigned_to || ''}
+                  onChange={e => onReassign(task.id, e.target.value)}
+                  className="w-full text-sm font-medium text-[var(--color-text-primary)] bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-lg py-1.5 pl-2.5 pr-7 cursor-pointer appearance-none hover:border-[var(--color-primary-300)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-300)]/40 transition-colors"
+                  style={{ colorScheme: 'light' }}
+                >
+                  <option value="">Unassigned</option>
+                  {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
+                <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--color-text-muted)] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              </div>
             </div>
             <div className="p-3 bg-[var(--color-badge-bg)] rounded-xl border border-[var(--color-card-border)]">
               <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Status</p>
-              <select
-                value={task.status}
-                onChange={e => onStatusChange(task.id, e.target.value)}
-                className="mt-1 text-sm font-medium text-[var(--color-text-primary)] bg-transparent border-none p-0 focus:outline-none cursor-pointer appearance-none w-full"
-              >
-                {statusOpts.map(s => <option key={s} value={s}>{statusConfig[s]?.label || s}</option>)}
-              </select>
+              <div className="relative mt-1">
+                <select
+                  value={task.status}
+                  onChange={e => onStatusChange(task.id, e.target.value)}
+                  className="w-full text-sm font-medium text-[var(--color-text-primary)] bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-lg py-1.5 pl-2.5 pr-7 cursor-pointer appearance-none hover:border-[var(--color-primary-300)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-300)]/40 transition-colors"
+                >
+                  {statusOpts.map(s => <option key={s} value={s}>{statusConfig[s]?.label || s}</option>)}
+                </select>
+                <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--color-text-muted)] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              </div>
             </div>
             <div className="p-3 bg-[var(--color-badge-bg)] rounded-xl border border-[var(--color-card-border)]">
               <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Priority</p>
