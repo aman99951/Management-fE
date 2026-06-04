@@ -44,6 +44,9 @@ export default function Tasks() {
   const [commentText, setCommentText] = useState({})
   const [commentExpanded, setCommentExpanded] = useState({})
   const [selectedTask, setSelectedTask] = useState(null)
+  const [showSendActionItems, setShowSendActionItems] = useState(false)
+  const [sendingActionItems, setSendingActionItems] = useState(false)
+  const [actionItemsResult, setActionItemsResult] = useState(null)
 
   useEffect(() => {
     const main = document.querySelector('main')
@@ -224,16 +227,26 @@ export default function Tasks() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Tasks</h1>
           <p className="text-sm text-[var(--color-text-secondary)] mt-1">{nonStatusFiltered.length} {nonStatusFiltered.length === 1 ? 'task' : 'tasks'} found</p>
-        </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--color-primary-600)] text-white text-sm font-semibold rounded-xl hover:bg-[var(--color-primary-700)] transition-all shadow-md shadow-black/10 active:scale-95"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          New Task
-        </button>
+        </div>          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSendActionItems(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 border border-[var(--color-primary-600)] text-[var(--color-primary-600)] text-sm font-semibold rounded-xl hover:bg-[var(--color-primary-50)] transition-all shadow-sm active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Send Action Items
+            </button>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--color-primary-600)] text-white text-sm font-semibold rounded-xl hover:bg-[var(--color-primary-700)] transition-all shadow-md shadow-black/10 active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              New Task
+            </button>
+          </div>
       </div>
 
       {/* ── Filter Bar ── */}
@@ -530,6 +543,27 @@ export default function Tasks() {
         />
       )}
 
+      {showSendActionItems && (
+        <SendActionItemsModal
+          onClose={() => { setShowSendActionItems(false); setActionItemsResult(null) }}
+          onSend={(priority, status) => {
+            setSendingActionItems(true)
+            setActionItemsResult(null)
+            api.sendActionItems({ priority, status })
+              .then(result => {
+                setActionItemsResult(result)
+                setSendingActionItems(false)
+              })
+              .catch(err => {
+                setActionItemsResult({ status: 'error', error: err.message })
+                setSendingActionItems(false)
+              })
+          }}
+          sending={sendingActionItems}
+          result={actionItemsResult}
+        />
+      )}
+
       {selectedTask && createPortal(
         <TaskDetailModal
           task={selectedTask}
@@ -739,6 +773,117 @@ function TaskDetailModal({ task, employees, comments, onClose, onStatusChange, o
           <button onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-badge-bg)] rounded-xl transition-colors">
             Close
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SendActionItemsModal({ onClose, onSend, sending, result }) {
+  const [priority, setPriority] = useState('all')
+  const [status, setStatus] = useState('pending')
+
+  const selectCls = "w-full px-3.5 py-2.5 bg-[var(--color-badge-bg)] border border-[var(--color-card-border)] rounded-xl text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)]/40 focus:border-[var(--color-primary-400)] appearance-none cursor-pointer pr-9 transition-all"
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-[var(--color-card-bg)] rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="p-6 border-b border-[var(--color-card-border)]">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[var(--color-primary-100)] flex items-center justify-center">
+                <svg className="w-5 h-5 text-[var(--color-primary-600)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-[var(--color-text-primary)]">Send Action Items</h2>
+                <p className="text-xs text-[var(--color-text-muted)]">Email open tasks to assignees</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-[var(--color-badge-bg)] flex items-center justify-center transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-[var(--color-text-secondary)] mb-1.5 uppercase tracking-wide">Priority Filter</label>
+            <div className="relative">
+              <select value={priority} onChange={e => setPriority(e.target.value)} className={selectCls}>
+                <option value="all">All Priorities</option>
+                <option value="critical">Critical</option>
+                <option value="high">High + Critical</option>
+                <option value="medium">Medium + High + Critical</option>
+                <option value="low">All Priorities</option>
+              </select>
+              <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--color-text-muted)] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[var(--color-text-secondary)] mb-1.5 uppercase tracking-wide">Task Status</label>
+            <div className="relative">
+              <select value={status} onChange={e => setStatus(e.target.value)} className={selectCls}>
+                <option value="pending">Pending only</option>
+                <option value="open">All Open (Pending + In Progress)</option>
+              </select>
+              <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--color-text-muted)] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+
+          {result && result.status !== 'error' && (
+            <div className="p-4 bg-emerald-900/20 border border-emerald-700/30 rounded-xl">
+              <div className="flex items-center gap-2 mb-1">
+                <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm font-semibold text-emerald-300">Emails sent successfully</p>
+              </div>
+              <p className="text-xs text-emerald-400/80 mt-1">
+                {result.total_emails_sent} email(s) sent · {result.total_employees_contacted} employee(s) contacted · {result.total_tasks_included} task(s) included
+              </p>
+              {result.total_emails_failed > 0 && (
+                <p className="text-xs text-red-400 mt-1">{result.total_emails_failed} email(s) failed to send</p>
+              )}
+              {result.details?.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-emerald-700/30 space-y-1">
+                  {result.details.map((d, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs">
+                      <span className="text-emerald-300">{d.employee_name}</span>
+                      <span className={d.sent ? 'text-emerald-400' : 'text-red-400'}>
+                        {d.sent ? `✓ ${d.task_count} tasks` : '✗ Failed'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {result && result.status === 'error' && (
+            <div className="p-4 bg-red-900/20 border border-red-700/30 rounded-xl">
+              <p className="text-sm text-red-300">Error: {result.error}</p>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[var(--color-card-border)]">
+            <button onClick={onClose} className="px-4 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-badge-bg)] rounded-xl transition-colors">
+              {result ? 'Close' : 'Cancel'}
+            </button>
+            <button
+              onClick={() => onSend(priority, status)}
+              disabled={sending}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[var(--color-primary-600)] rounded-xl hover:bg-[var(--color-primary-700)] transition-all shadow-md shadow-black/10 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+            >
+              {sending ? (
+                <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Sending...</>
+              ) : result ? (
+                'Send Again'
+              ) : (
+                <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg> Send Action Items</>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -59,6 +59,10 @@ export const api = {
     request(`/api/tasks/${id}/comments/`, { method: 'POST', body: JSON.stringify(data) }),
   createTask: (data) =>
     request('/api/tasks/', { method: 'POST', body: JSON.stringify(data) }),
+  sendActionItems: (data) =>
+    request('/api/tasks/send_action_items/', { method: 'POST', body: JSON.stringify(data) }),
+  sendTaskAssignmentEmail: (id) =>
+    request(`/api/tasks/${id}/send_assignment_email/`, { method: 'POST' }),
 
   getEmployees: () => request('/api/employees/'),
   createEmployee: (data) =>

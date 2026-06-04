@@ -89,7 +89,9 @@ export default function Schedule() {
     setInviting(true)
     try {
       const result = await api.inviteToMeeting(meetingId, selectedEmployees)
-      showNotif(`Invited ${result.invited} employee(s) — ${result.notifications_created} notification(s) sent!`)
+      const emailPart = result.emails_sent > 0 ? ` — ${result.emails_sent} email(s) sent` : ''
+      const failPart = result.emails_failed > 0 ? `, ${result.emails_failed} failed` : ''
+      showNotif(`Invited ${result.invited} employee(s) — ${result.notifications_created} notification(s)${emailPart}${failPart}!`)
       setShowInvite(null)
       setSelectedEmployees([])
       const updated = await api.getScheduledMeeting(meetingId)
