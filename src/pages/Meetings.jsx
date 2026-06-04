@@ -16,26 +16,10 @@ export default function Meetings() {
   const [hasTasksFilter, setHasTasksFilter] = useState('all')
   const [page, setPage] = useState(1)
   const perPage = 6
-  const [autoGenerating, setAutoGenerating] = useState(false)
-
   useEffect(() => {
     api.getMeetings().then(data => {
       setMeetings(data)
-      // Check if any meetings need auto-generation
-      const needsTasks = data.some(m => {
-        const hasContent = m.summary || (m.transcript && m.transcript.length > 0)
-        const hasNoTasks = !m.tasks || m.tasks.length === 0
-        return hasContent && hasNoTasks
-      })
-      if (needsTasks) {
-        setAutoGenerating(true)
-        api.batchGenerateTasks()
-          .then(() => api.getMeetings())
-          .then(updated => { setMeetings(updated); setAutoGenerating(false); setLoading(false) })
-          .catch(() => { setAutoGenerating(false); setLoading(false) })
-      } else {
-        setLoading(false)
-      }
+      setLoading(false)
     })
   }, [])
 
@@ -119,33 +103,7 @@ export default function Meetings() {
   }
 
   return (
-    <div className="animate-fade-in relative">
-      {/* Auto-generating overlay */}
-      {autoGenerating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl p-8 shadow-2xl text-center max-w-sm mx-4 animate-scale-in">
-            <div className="relative w-16 h-16 mx-auto mb-5">
-              <div className="absolute inset-0 border-4 border-[var(--color-primary-200)] rounded-full" />
-              <div className="absolute inset-0 border-4 border-transparent border-t-[var(--color-primary-600)] rounded-full animate-spin" />
-              <div className="absolute inset-2 flex items-center justify-center">
-                <svg className="w-5 h-5 text-[var(--color-primary-600)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-              </div>
-            </div>
-            <p className="text-base font-bold text-[var(--color-text-primary)]">Generating Tasks</p>
-            <p className="text-sm text-[var(--color-text-secondary)] mt-1.5">
-              Analyzing meeting transcripts with AI...
-            </p>
-            <div className="mt-5 flex justify-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[var(--color-primary-500)] animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2 h-2 rounded-full bg-[var(--color-primary-500)] animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2 h-2 rounded-full bg-[var(--color-primary-500)] animate-bounce" style={{ animationDelay: '300ms' }} />
-            </div>
-          </div>
-        </div>
-      )}
-
+    <div className="animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Meetings</h1>
