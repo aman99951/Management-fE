@@ -1,9 +1,7 @@
-const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
-
 export default function Login() {
   const googleLogin = () => {
     localStorage.removeItem('sso_token')
-    window.location.href = `${BACKEND_URL}/accounts/google/login/`
+    window.location.href = '/accounts/google/login/'
   }
 
   return (

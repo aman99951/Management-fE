@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://management-be-eight.vercel.app/api/$1" },
+    { "source": "/accounts/(.*)", "destination": "https://management-be-eight.vercel.app/accounts/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
