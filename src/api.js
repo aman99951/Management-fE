@@ -48,6 +48,8 @@ export const api = {
     request(`/api/meetings/${id}/check_fathom/`, { method: 'POST' }),
   generateTasksForMeeting: (id) =>
     request(`/api/meetings/${id}/generate_tasks/`, { method: 'POST' }),
+  batchGenerateTasks: () =>
+    request('/api/meetings/batch_generate_tasks/', { method: 'POST' }),
 
   getTasks: () => request('/api/tasks/'),
   updateTaskStatus: (id, status) =>
