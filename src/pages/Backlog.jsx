@@ -36,6 +36,7 @@ export default function Backlog() {
   const [suggestions, setSuggestions] = useState([])
   const [scanning, setScanning] = useState(false)
   const [selectedImage, setSelectedImage] = useState(null)
+  const [detailItem, setDetailItem] = useState(null)
   const [page, setPage] = useState(1)
   const perPage = 5
   const fileInputRef = useRef(null)
@@ -167,7 +168,7 @@ export default function Backlog() {
         const mapped = result.items.map(s => ({
           id: 'sugg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
           description: s.text || s.description || '',
-          source: s.source || 'discussion',
+          source: s.source_ref || s.source || 'discussion',
           source_id: s.source_id || null,
           created_at: Date.now(),
           reviewed: false,
@@ -176,72 +177,20 @@ export default function Backlog() {
       }
     } catch {}
 
-    try {
-      const meetings = await api.getMeetings()
-      meetings.forEach(m => {
-        const sources = []
-        if (m.summary) sources.push({ text: m.summary, type: 'summary' })
-        if (m.transcript) {
-          if (typeof m.transcript === 'string') {
-            sources.push({ text: m.transcript, type: 'transcript' })
-          } else if (Array.isArray(m.transcript)) {
-            m.transcript.forEach(chunk => {
-              const txt = typeof chunk === 'string' ? chunk : chunk.text || chunk.content || ''
-              if (txt) sources.push({ text: txt, type: 'transcript' })
-            })
-          }
-        }
-        sources.forEach(s => {
-          if (s.text.toLowerCase().includes('backlog')) {
-            const excerpt = s.text.length > 200 ? s.text.slice(0, 200) + '...' : s.text
-            found.push({
-              id: 'sugg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-              description: excerpt,
-              source: `Meeting "${m.title}" — ${s.type === 'summary' ? 'AI Summary' : 'Transcription'}`,
-              source_id: m.id,
-              created_at: Date.now(),
-              reviewed: false,
-            })
-          }
-        })
-      })
-    } catch {}
-
-    try {
-      const tasks = await api.getTasks()
-      const scanPromises = tasks.map(async (task) => {
-        try {
-          const comments = await api.getTaskComments(task.id)
-          comments.forEach(c => {
-            const text = c.text || c.content || ''
-            if (text.toLowerCase().includes('backlog')) {
-              found.push({
-                id: 'sugg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-                description: text.length > 200 ? text.slice(0, 200) + '...' : text,
-                source: `Comment on: ${task.title || 'Task'}`,
-                source_id: task.id,
-                created_at: Date.now(),
-                reviewed: false,
-              })
-            }
-          })
-        } catch {}
-      })
-      await Promise.all(scanPromises)
-    } catch {}
-
     if (found.length > 0) {
+      const existingSources = new Set(
+        items.filter(i => i.source_ref).map(i => i.source_ref)
+      )
+      const existingDescriptions = new Set(
+        items.map(i => i.description?.trim().toLowerCase())
+      )
+      const newFound = found.filter(s =>
+        !existingSources.has(s.source) &&
+        !existingDescriptions.has(s.description.trim().toLowerCase())
+      )
       if (autoApprove) {
-        const existingSources = new Set(
-          items.filter(i => i.source_ref).map(i => i.source_ref)
-        )
-        const existingDescriptions = new Set(
-          items.map(i => i.description?.trim().toLowerCase())
-        )
         let count = 0
-        for (const s of found) {
-          if (existingSources.has(s.source)) continue
-          if (existingDescriptions.has(s.description.trim().toLowerCase())) continue
+        for (const s of newFound) {
           try {
             await api.createBacklogItem({
               description: s.description,
@@ -251,8 +200,6 @@ export default function Backlog() {
               source_ref: s.source,
             })
             count++
-            existingSources.add(s.source)
-            existingDescriptions.add(s.description.trim().toLowerCase())
           } catch {}
         }
         if (count > 0) {
@@ -260,11 +207,11 @@ export default function Backlog() {
           api.getBacklogItems().then(data => setItems(Array.isArray(data) ? data : data.results || []))
         }
       } else {
-        setSuggestions(prev => [...found, ...prev])
-        showNotif(`Auto-captured ${found.length} item(s) mentioning "backlog" from transcriptions, summaries, and comments`)
+        setSuggestions(prev => [...newFound, ...prev])
+        showNotif(`Found ${newFound.length} candidate(s) for the backlog — review and approve below`)
       }
     } else {
-      showNotif('No "backlog" keyword found in meeting transcripts, summaries, or comments', 'info')
+      showNotif('No backlog candidates found in discussions', 'info')
     }
     setScanning(false)
   }
@@ -465,7 +412,7 @@ export default function Backlog() {
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-[var(--color-text-primary)] leading-relaxed">{item.description}</p>
+                  <p className="text-sm text-[var(--color-text-primary)] leading-relaxed cursor-pointer hover:text-[var(--color-primary-400)] transition-colors" onClick={() => setDetailItem(item)}>{item.description}</p>
                   <div className="flex items-center gap-4 mt-2 text-xs text-[var(--color-text-muted)]">
                     <span className="flex items-center gap-1">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -702,6 +649,64 @@ export default function Backlog() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {detailItem && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setDetailItem(null)}>
+          <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-[var(--color-card-border)]">
+              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Backlog Details</h2>
+              <button onClick={() => setDetailItem(null)} className="p-1.5 rounded-lg hover:bg-[var(--color-badge-bg)] text-[var(--color-text-muted)] transition-colors">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${PRIORITY_COLORS[detailItem.priority] || PRIORITY_COLORS.Medium}`}>
+                  {detailItem.priority}
+                </span>
+                <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${STATUS_COLORS[detailItem.status] || STATUS_COLORS.New}`}>
+                  {detailItem.status}
+                </span>
+                {detailItem.source === 'auto-capture' && (
+                  <span className="text-xs font-medium px-2.5 py-0.5 rounded-full border border-purple-500/30 bg-purple-500/20 text-purple-300">
+                    Auto-captured
+                  </span>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Description</label>
+                <p className="text-sm text-[var(--color-text-primary)] leading-relaxed whitespace-pre-wrap">{detailItem.description}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Assignee</label>
+                  <p className="text-[var(--color-text-primary)]">{getOwnerName(detailItem.owner)}</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Created</label>
+                  <p className="text-[var(--color-text-primary)]">{formatDate(detailItem.created_at)}</p>
+                </div>
+                {detailItem.source_ref && (
+                  <>
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Source</label>
+                      <p className="text-[var(--color-text-primary)]">{detailItem.source_ref}</p>
+                    </div>
+                  </>
+                )}
+              </div>
+              {detailItem.image && (
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Attachment</label>
+                  <img src={detailItem.image} alt="" className="max-h-48 rounded-lg object-cover border border-[var(--color-card-border)]" />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
