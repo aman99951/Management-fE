@@ -37,6 +37,8 @@ export default function Backlog() {
   const [scanning, setScanning] = useState(false)
   const [selectedImage, setSelectedImage] = useState(null)
   const [detailItem, setDetailItem] = useState(null)
+  const [showCustomScan, setShowCustomScan] = useState(false)
+  const [customScanDate, setCustomScanDate] = useState('')
   const [page, setPage] = useState(1)
   const perPage = 5
   const fileInputRef = useRef(null)
@@ -65,7 +67,7 @@ export default function Backlog() {
   }, [])
 
   useEffect(() => {
-    if (!loading) handleScan(true)
+    if (!loading) handleScan(true, 1)
   }, [loading])
 
   const showNotif = (message, type = 'success') => {
@@ -159,11 +161,11 @@ export default function Backlog() {
     return emp?.name || emp?.email || 'Unassigned'
   }
 
-  const handleScan = async (autoApprove = false) => {
+  const handleScan = async (autoApprove = false, daysBack = 1) => {
     setScanning(true)
     let found = []
     try {
-      const result = await api.scanBacklogKeywords()
+      const result = await api.scanBacklogKeywords(daysBack)
       if (result.items && result.items.length > 0) {
         const mapped = result.items.map(s => ({
           id: 'sugg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
@@ -214,6 +216,20 @@ export default function Backlog() {
       showNotif('No backlog candidates found in discussions', 'info')
     }
     setScanning(false)
+  }
+
+  const handleCustomScan = async () => {
+    if (!customScanDate) {
+      showNotif('Please select a date', 'error')
+      return
+    }
+    const selected = new Date(customScanDate)
+    const now = new Date()
+    const diffMs = now - selected
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+    const daysBack = Math.max(diffDays, 1)
+    setShowCustomScan(false)
+    await handleScan(false, daysBack)
   }
 
   const approveSuggestion = async (sugg) => {
@@ -284,7 +300,17 @@ export default function Backlog() {
             <svg className={`w-4 h-4 shrink-0 ${scanning ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            {scanning ? 'Scanning...' : 'Scan Discussions'}
+            {scanning ? 'Scanning...' : 'Scan (1 day)'}
+          </button>
+          <button
+            onClick={() => setShowCustomScan(true)}
+            disabled={scanning}
+            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] hover:bg-[var(--color-card-border)] transition-colors border border-[var(--color-card-border)] disabled:opacity-50 max-sm:w-full"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Custom Scan
           </button>
           <button
             onClick={() => setShowAdd(true)}
@@ -706,6 +732,40 @@ export default function Backlog() {
                   <img src={detailItem.image} alt="" className="max-h-48 rounded-lg object-cover border border-[var(--color-card-border)]" />
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCustomScan && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowCustomScan(false)}>
+          <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl w-full max-w-sm shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-[var(--color-card-border)]">
+              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Custom Scan</h2>
+              <button onClick={() => setShowCustomScan(false)} className="p-1.5 rounded-lg hover:bg-[var(--color-badge-bg)] text-[var(--color-text-muted)] transition-colors">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-[var(--color-text-secondary)]">Select a date to scan meetings from that day forward.</p>
+              <input
+                type="date"
+                value={customScanDate}
+                onChange={e => setCustomScanDate(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all"
+              />
+              <button
+                onClick={handleCustomScan}
+                disabled={scanning}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-[var(--color-primary-600)] text-white hover:bg-[var(--color-primary-700)] transition-colors disabled:opacity-50"
+              >
+                <svg className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                {scanning ? 'Scanning...' : 'Scan from this date'}
+              </button>
             </div>
           </div>
         </div>

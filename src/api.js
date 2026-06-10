@@ -124,6 +124,6 @@ export const api = {
     request(`/api/backlog/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteBacklogItem: (id) =>
     request(`/api/backlog/${id}/`, { method: 'DELETE' }),
-  scanBacklogKeywords: () =>
-    request('/api/backlog/scan/', { method: 'POST' }),
+  scanBacklogKeywords: (daysBack = 1) =>
+    request('/api/backlog/scan/', { method: 'POST', body: JSON.stringify({ days_back: daysBack }) }),
 }
