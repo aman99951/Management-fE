@@ -9,6 +9,7 @@ import Tasks from './pages/Tasks'
 import Employees from './pages/Employees'
 import Settings from './pages/Settings'
 import Schedule from './pages/Schedule'
+import Backlog from './pages/Backlog'
 
 function AppRoutes() {
   const [session, setSession] = useState(null)
@@ -65,6 +66,7 @@ function AppRoutes() {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/employees" element={<Employees />} />
         <Route path="/schedule" element={<Schedule />} />
+        <Route path="/backlog" element={<Backlog />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </Layout>

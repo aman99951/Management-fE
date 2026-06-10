@@ -115,4 +115,15 @@ export const api = {
   getNotifications: () => request('/api/notifications/'),
   markNotificationsRead: (ids) =>
     request('/api/notifications/mark-read/', { method: 'POST', body: JSON.stringify({ ids }) }),
+
+  // Backlog
+  getBacklogItems: () => request('/api/backlog/'),
+  createBacklogItem: (data) =>
+    request('/api/backlog/', { method: 'POST', body: JSON.stringify(data) }),
+  updateBacklogItem: (id, data) =>
+    request(`/api/backlog/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteBacklogItem: (id) =>
+    request(`/api/backlog/${id}/`, { method: 'DELETE' }),
+  scanBacklogKeywords: () =>
+    request('/api/backlog/scan/', { method: 'POST' }),
 }
