@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
 
 const PRIORITIES = ['All', 'Low', 'Medium', 'High', 'Critical']
-const STATUSES = ['New', 'Reviewed', 'In Progress', 'Done']
+const STATUSES = ['New', 'Reviewed', 'In Progress', 'Done', 'Future Consideration']
 
 const PRIORITY_COLORS = {
   Low: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
@@ -16,6 +16,7 @@ const STATUS_COLORS = {
   Reviewed: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
   'In Progress': 'bg-purple-500/20 text-purple-300 border-purple-500/30',
   Done: 'bg-green-500/20 text-green-300 border-green-500/30',
+  'Future Consideration': 'bg-purple-500/20 text-purple-300 border-purple-500/30',
 }
 
 function formatDate(ts) {
@@ -217,22 +218,31 @@ export default function Backlog() {
 
   const handleApproveSuggestion = async (sugg) => {
     try {
-      // Step 1: Create backog item
+      // Build a comprehensive description from structured fields
+      const descParts = []
+      if (sugg.title) descParts.push(`# ${sugg.title}`)
+      if (sugg.background) descParts.push(`\n**Background / Problem Statement:**\n${sugg.background}`)
+      if (sugg.proposed_enhancement) descParts.push(`\n**Proposed Enhancement:**\n${sugg.proposed_enhancement}`)
+      if (sugg.expected_benefits) descParts.push(`\n**Expected Benefits:**\n${sugg.expected_benefits}`)
+      if (sugg.stakeholders) descParts.push(`\n**Stakeholders:** ${sugg.stakeholders}`)
+      if (sugg.source_of_idea) descParts.push(`\n**Source:** ${sugg.source_of_idea}`)
+      if (sugg.meeting_title) descParts.push(`\n**From Meeting:** ${sugg.meeting_title}`)
+
+      const description = descParts.join('\n')
+
       const created = await api.createBacklogItem({
-        description: sugg.description,
-        priority: 'Medium',
-        status: 'New',
+        description: description || sugg.title,
+        priority: sugg.priority || 'Medium',
+        status: 'Future Consideration',
         source: 'auto-capture',
         source_ref: sugg.source,
         owner: sugg.owner || null,
       })
-      // Step 2: Auto-convert to task
-      await api.convertBacklogToTask(created.id)
       // Refresh items
       const data = await api.getBacklogItems()
       setItems(Array.isArray(data) ? data : data.results || [])
       setSuggestions(prev => prev.filter(s => s.id !== sugg.id))
-      showNotif('Approved & task created automatically!')
+      showNotif('Enhancement added to backlog!')
     } catch (err) {
       showNotif(err.message || 'Failed to approve suggestion', 'error')
     }
@@ -248,10 +258,17 @@ export default function Backlog() {
     try {
       const result = await api.scanBacklogKeywords(daysBack)
       if (result.items && result.items.length > 0) {
-        const mapped = result.items.map(s => ({
-          id: 'sugg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-          description: s.text || s.description || '',
-          source: s.source_ref || s.source || 'discussion',
+        const mapped = result.items.map((s, idx) => ({
+          id: 'sugg_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2, 8),
+          title: s.title || '',
+          background: s.background || '',
+          proposed_enhancement: s.proposed_enhancement || '',
+          expected_benefits: s.expected_benefits || '',
+          stakeholders: s.stakeholders || '',
+          priority: s.priority || 'Medium',
+          source_of_idea: s.source_of_idea || '',
+          source: s.source || 'meeting',
+          meeting_title: s.meeting_title || '',
           source_id: s.source_id || null,
           created_at: Date.now(),
           reviewed: false,
@@ -264,39 +281,37 @@ export default function Backlog() {
       const existingSources = new Set(
         items.filter(i => i.source_ref).map(i => i.source_ref)
       )
-      const existingDescriptions = new Set(
-        items.map(i => i.description?.trim().toLowerCase())
+      const existingTitles = new Set(
+        items.map(i => i.title?.trim().toLowerCase())
       )
       const newFound = found.filter(s =>
         !existingSources.has(s.source) &&
-        !existingDescriptions.has(s.description.trim().toLowerCase())
+        !existingTitles.has(s.title.trim().toLowerCase())
       )
       if (autoApprove) {
         let count = 0
         for (const s of newFound) {
           try {
             const created = await api.createBacklogItem({
-              description: s.description,
-              priority: 'Medium',
-              status: 'New',
+              description: s.background || s.title,
+              priority: s.priority || 'Medium',
+              status: 'Future Consideration',
               source: 'auto-capture',
               source_ref: s.source,
             })
-            // Auto-convert to task
-            await api.convertBacklogToTask(created.id)
             count++
           } catch {}
         }
         if (count > 0) {
-          showNotif(`Auto-captured & converted ${count} item(s) to tasks`)
+          showNotif(`Auto-captured ${count} enhancement item(s)`)
           api.getBacklogItems().then(data => setItems(Array.isArray(data) ? data : data.results || []))
         }
       } else {
         setSuggestions(prev => [...newFound, ...prev])
-        showNotif(`Found ${newFound.length} candidate(s) — review and approve below`)
+        showNotif(`Found ${newFound.length} product enhancement candidate(s) — review below`)
       }
     } else {
-      showNotif('No backlog candidates found in discussions', 'info')
+      showNotif('No enhancement candidates found in discussions', 'info')
     }
     setScanning(false)
   }
@@ -457,16 +472,16 @@ export default function Backlog() {
         </div>
       </div>
 
-      {/* ════════ PENDING REVIEW SECTION ════════ */}
+      {/* ════════ PENDING REVIEW SECTION — Structured Enhancement Items ════════ */}
       {suggestions.length > 0 && (
-        <div className="bg-[var(--color-card-bg)] border border-yellow-500/20 rounded-2xl overflow-hidden animate-slide-up">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-yellow-500/10">
+        <div className="bg-[var(--color-card-bg)] border border-[var(--color-primary-500)]/20 rounded-2xl overflow-hidden animate-slide-up">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-primary-500)]/10">
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg className="w-5 h-5 text-[var(--color-primary-500)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
               </svg>
-              <h2 className="text-sm font-semibold text-yellow-300">Pending Review — AI Detected Items</h2>
-              <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full">{suggestions.length} pending</span>
+              <h2 className="text-sm font-semibold text-[var(--color-primary-300)]">Product Enhancements Detected</h2>
+              <span className="text-xs bg-[var(--color-primary-500)]/20 text-[var(--color-primary-300)] px-2 py-0.5 rounded-full">{suggestions.length} found</span>
             </div>
             <button
               onClick={() => setSuggestions([])}
@@ -477,15 +492,72 @@ export default function Backlog() {
           </div>
           <div className="divide-y divide-[var(--color-card-border)]">
             {suggestions.map(s => (
-              <div key={s.id} className="px-5 py-4 hover:bg-yellow-500/5 transition-colors">
-                <div className="flex flex-col sm:flex-row items-start gap-3">
+              <div key={s.id} className="px-5 py-4 hover:bg-[var(--color-primary-500)]/[0.02] transition-colors">
+                <div className="flex flex-col sm:flex-row items-start gap-4">
                   <div className="flex-1 min-w-0 w-full sm:w-auto">
-                    <div className="flex items-center gap-2 mb-1">
+                    {/* Title & Meeting Source */}
+                    <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-sm">{sourceIcon(s.source)}</span>
-                      <p className="text-xs text-[var(--color-text-muted)]">Source: {s.source}</p>
+                      <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{s.title}</h3>
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${PRIORITY_COLORS[s.priority] || PRIORITY_COLORS.Medium}`}>
+                        {s.priority}
+                      </span>
                     </div>
-                    <p className="text-sm text-[var(--color-text-primary)] leading-relaxed">{s.description}</p>
+
+                    {/* Background */}
+                    {s.background && (
+                      <div className="mb-1.5">
+                        <p className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">Problem</p>
+                        <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{s.background}</p>
+                      </div>
+                    )}
+
+                    {/* Proposed Enhancement */}
+                    {s.proposed_enhancement && (
+                      <div className="mb-1.5">
+                        <p className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">Proposed Enhancement</p>
+                        <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{s.proposed_enhancement}</p>
+                      </div>
+                    )}
+
+                    {/* Expected Benefits */}
+                    {s.expected_benefits && (
+                      <div className="mb-1.5">
+                        <p className="text-[10px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-0.5">Business Impact</p>
+                        <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{s.expected_benefits}</p>
+                      </div>
+                    )}
+
+                    {/* Metadata row */}
+                    <div className="flex items-center gap-3 mt-2 text-[10px] text-[var(--color-text-muted)]">
+                      {s.stakeholders && (
+                        <span className="flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          {s.stakeholders}
+                        </span>
+                      )}
+                      {s.source_of_idea && (
+                        <span className="flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                          </svg>
+                          {s.source_of_idea}
+                        </span>
+                      )}
+                      {s.meeting_title && (
+                        <span className="flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                          </svg>
+                          {s.meeting_title}
+                        </span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Action buttons */}
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                     <button
                       onClick={() => handleApproveSuggestion(s)}
@@ -494,7 +566,7 @@ export default function Backlog() {
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
-                      Approve & Create Task
+                      Add to Backlog
                     </button>
                     <button
                       onClick={() => dismissSuggestion(s.id)}
