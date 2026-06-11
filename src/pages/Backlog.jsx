@@ -1178,11 +1178,6 @@ export default function Backlog() {
         </div>
       )}
 
-          </div>
-        </div>,
-        document.getElementById('portal-root')
-      )}
-
       {/* ════════ CUSTOM SCAN MODAL ════════ */}
       {showCustomScan && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowCustomScan(false)}>
