@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { api } from '../api'
 
 const PRIORITIES = ['All', 'Low', 'Medium', 'High', 'Critical']
@@ -82,6 +83,25 @@ export default function Backlog() {
   useEffect(() => {
     if (!loading) handleScan(false, 1)
   }, [loading])
+
+  // Lock body scroll when detail modal is open (same pattern as Tasks page)
+  useEffect(() => {
+    const main = document.querySelector('main')
+    if (detailItem) {
+      document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
+      if (main) main.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+      if (main) main.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+      if (main) main.style.overflow = ''
+    }
+  }, [detailItem])
 
   const showNotif = (message, type = 'success') => {
     setNotification({ message, type })
@@ -1077,9 +1097,9 @@ export default function Backlog() {
       )}
 
       {/* ════════ DETAIL MODAL ════════ */}
-      {detailItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center pt-[10vh] pb-8 px-4 overflow-y-auto" onClick={() => setDetailItem(null)}>
-          <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl w-full max-w-lg shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+      {detailItem && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDetailItem(null)}>
+          <div className="bg-[var(--color-card-bg)] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-[var(--color-card-border)]">
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Backlog Details</h2>
               <button onClick={() => setDetailItem(null)} className="p-1.5 rounded-lg hover:bg-[var(--color-badge-bg)] text-[var(--color-text-muted)] transition-colors">
@@ -1156,6 +1176,11 @@ export default function Backlog() {
             </div>
           </div>
         </div>
+      )}
+
+          </div>
+        </div>,
+        document.getElementById('portal-root')
       )}
 
       {/* ════════ CUSTOM SCAN MODAL ════════ */}
