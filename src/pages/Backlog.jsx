@@ -1097,6 +1097,7 @@ export default function Backlog() {
       )}
 
       {/* ════════ DETAIL MODAL ════════ */}
+      {/* ════════ DETAIL MODAL ════════ */}
       {detailItem && createPortal(
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDetailItem(null)}>
           <div className="bg-[var(--color-card-bg)] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -1125,7 +1126,7 @@ export default function Backlog() {
                   <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full border border-green-500/30 bg-green-500/20 text-green-300">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
+                    </svg>
                     Task #{detailItem.task_id}
                   </span>
                 )}
@@ -1175,7 +1176,8 @@ export default function Backlog() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('portal-root')
       )}
 
       {/* ════════ CUSTOM SCAN MODAL ════════ */}
