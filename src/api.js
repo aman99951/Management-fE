@@ -124,6 +124,8 @@ export const api = {
     request(`/api/backlog/${id}/`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteBacklogItem: (id) =>
     request(`/api/backlog/${id}/`, { method: 'DELETE' }),
+  generateBacklogFromPrompt: (prompt) =>
+    request('/api/backlog/generate_from_prompt/', { method: 'POST', body: JSON.stringify({ prompt }) }),
   scanBacklogKeywords: (daysBack = 1) =>
     request('/api/backlog/scan/', { method: 'POST', body: JSON.stringify({ days_back: daysBack }) }),
   convertBacklogToTask: (id) =>
