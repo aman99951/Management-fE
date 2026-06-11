@@ -76,7 +76,7 @@ export default function Backlog() {
   }, [])
 
   useEffect(() => {
-    if (!loading) handleScan(true, 1)
+    if (!loading) handleScan(false, 1)
   }, [loading])
 
   const showNotif = (message, type = 'success') => {
