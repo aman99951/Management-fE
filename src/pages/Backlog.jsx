@@ -84,10 +84,11 @@ export default function Backlog() {
     if (!loading) handleScan(false, 1)
   }, [loading])
 
-  // Lock body scroll when detail modal is open (same pattern as Tasks page)
+  // Lock body scroll when any modal is open (same pattern as Tasks page)
   useEffect(() => {
+    const modalOpen = detailItem || showAdd || showAiGenerate
     const main = document.querySelector('main')
-    if (detailItem) {
+    if (modalOpen) {
       document.body.style.overflow = 'hidden'
       document.documentElement.style.overflow = 'hidden'
       if (main) main.style.overflow = 'hidden'
@@ -101,7 +102,7 @@ export default function Backlog() {
       document.documentElement.style.overflow = ''
       if (main) main.style.overflow = ''
     }
-  }, [detailItem])
+  }, [detailItem, showAdd, showAiGenerate])
 
   const showNotif = (message, type = 'success') => {
     setNotification({ message, type })
@@ -986,8 +987,8 @@ export default function Backlog() {
       )}
 
       {/* ════════ ADD ITEM MODAL ════════ */}
-      {showAdd && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={resetForm}>
+      {showAdd && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={resetForm}>
           <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-[var(--color-card-border)]">
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Add Backlog Item</h2>
@@ -1093,10 +1094,10 @@ export default function Backlog() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.getElementById('portal-root')
       )}
 
-      {/* ════════ DETAIL MODAL ════════ */}
       {/* ════════ DETAIL MODAL ════════ */}
       {detailItem && createPortal(
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDetailItem(null)}>
