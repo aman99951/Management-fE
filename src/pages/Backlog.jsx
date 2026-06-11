@@ -23,6 +23,13 @@ function formatDate(ts) {
   return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+function sourceIcon(source) {
+  if (!source) return null
+  const s = source.toLowerCase()
+  if (s.includes('meeting')) return '🎙️'
+  return '📝'
+}
+
 export default function Backlog() {
   const [items, setItems] = useState([])
   const [employees, setEmployees] = useState([])
@@ -40,7 +47,9 @@ export default function Backlog() {
   const [showCustomScan, setShowCustomScan] = useState(false)
   const [customScanDate, setCustomScanDate] = useState('')
   const [page, setPage] = useState(1)
-  const perPage = 5
+  const [tab, setTab] = useState('all') // 'pending' | 'converted' | 'all'
+  const [convertingId, setConvertingId] = useState(null)
+  const perPage = 10
   const fileInputRef = useRef(null)
 
   const [form, setForm] = useState({
@@ -161,6 +170,51 @@ export default function Backlog() {
     return emp?.name || emp?.email || 'Unassigned'
   }
 
+  const handleConvertToTask = async (backlogItem) => {
+    setConvertingId(backlogItem.id)
+    try {
+      const result = await api.convertBacklogToTask(backlogItem.id)
+      if (result.status === 'already_converted') {
+        showNotif('Task already created for this item', 'info')
+      } else {
+        showNotif('Task created automatically from backlog item!', 'success')
+      }
+      // Refresh the list to show updated task info
+      const data = await api.getBacklogItems()
+      setItems(Array.isArray(data) ? data : data.results || [])
+    } catch (err) {
+      showNotif(err.message || 'Failed to convert to task', 'error')
+    }
+    setConvertingId(null)
+  }
+
+  const handleApproveSuggestion = async (sugg) => {
+    try {
+      // Step 1: Create backog item
+      const created = await api.createBacklogItem({
+        description: sugg.description,
+        priority: 'Medium',
+        status: 'New',
+        source: 'auto-capture',
+        source_ref: sugg.source,
+        owner: sugg.owner || null,
+      })
+      // Step 2: Auto-convert to task
+      await api.convertBacklogToTask(created.id)
+      // Refresh items
+      const data = await api.getBacklogItems()
+      setItems(Array.isArray(data) ? data : data.results || [])
+      setSuggestions(prev => prev.filter(s => s.id !== sugg.id))
+      showNotif('Approved & task created automatically!')
+    } catch (err) {
+      showNotif(err.message || 'Failed to approve suggestion', 'error')
+    }
+  }
+
+  const dismissSuggestion = (id) => {
+    setSuggestions(prev => prev.filter(s => s.id !== id))
+  }
+
   const handleScan = async (autoApprove = false, daysBack = 1) => {
     setScanning(true)
     let found = []
@@ -194,23 +248,25 @@ export default function Backlog() {
         let count = 0
         for (const s of newFound) {
           try {
-            await api.createBacklogItem({
+            const created = await api.createBacklogItem({
               description: s.description,
               priority: 'Medium',
               status: 'New',
               source: 'auto-capture',
               source_ref: s.source,
             })
+            // Auto-convert to task
+            await api.convertBacklogToTask(created.id)
             count++
           } catch {}
         }
         if (count > 0) {
-          showNotif(`Auto-captured ${count} backlog item(s) from discussions`)
+          showNotif(`Auto-captured & converted ${count} item(s) to tasks`)
           api.getBacklogItems().then(data => setItems(Array.isArray(data) ? data : data.results || []))
         }
       } else {
         setSuggestions(prev => [...newFound, ...prev])
-        showNotif(`Found ${newFound.length} candidate(s) for the backlog — review and approve below`)
+        showNotif(`Found ${newFound.length} candidate(s) — review and approve below`)
       }
     } else {
       showNotif('No backlog candidates found in discussions', 'info')
@@ -232,30 +288,16 @@ export default function Backlog() {
     await handleScan(false, daysBack)
   }
 
-  const approveSuggestion = async (sugg) => {
-    try {
-      const created = await api.createBacklogItem({
-        description: sugg.description,
-        priority: 'Medium',
-        status: 'New',
-        source: 'auto-capture',
-        source_ref: sugg.source,
-      })
-      setItems(prev => [created, ...prev])
-      setSuggestions(prev => prev.filter(s => s.id !== sugg.id))
-      showNotif('Suggestion approved and added to backlog')
-    } catch (err) {
-      showNotif(err.message || 'Failed to approve suggestion', 'error')
-    }
-  }
+  useEffect(() => { setPage(1) }, [search, priorityFilter, statusFilter, tab])
 
-  const dismissSuggestion = (id) => {
-    setSuggestions(prev => prev.filter(s => s.id !== id))
-  }
+  // Filter items by tab
+  const itemsByTab = items.filter(item => {
+    if (tab === 'pending') return !item.task_id && item.status !== 'Done'
+    if (tab === 'converted') return item.task_id
+    return true
+  })
 
-  useEffect(() => { setPage(1) }, [search, priorityFilter, statusFilter])
-
-  const filteredItems = items
+  const filteredItems = itemsByTab
     .filter(item => {
       if (search && !item.description?.toLowerCase().includes(search.toLowerCase())) return false
       if (priorityFilter !== 'All' && item.priority !== priorityFilter) return false
@@ -276,6 +318,11 @@ export default function Backlog() {
     )
   }
 
+  // ── Pipeline stats ──
+  const pendingReviewCount = suggestions.length
+  const unconvertedCount = items.filter(i => !i.task_id && i.status !== 'Done').length
+  const convertedCount = items.filter(i => i.task_id).length
+
   return (
     <div className="animate-fade-in space-y-6">
       {notification && (
@@ -286,79 +333,173 @@ export default function Backlog() {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Backlog</h1>
-          <p className="text-sm text-[var(--color-text-secondary)] mt-1">Manage and capture backlog items from discussions</p>
+      {/* ════════ PIPELINE FLOW HEADER ════════ */}
+      <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Backlog Pipeline</h1>
+            <p className="text-sm text-[var(--color-text-secondary)] mt-1">Meetings → AI Detection → Review & Approve → Auto-create Tasks</p>
+          </div>
+          <div className="flex items-center gap-3 max-sm:w-full max-sm:flex-col">
+            <button
+              onClick={() => handleScan(false)}
+              disabled={scanning}
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] hover:bg-[var(--color-card-border)] transition-colors border border-[var(--color-card-border)] disabled:opacity-50 max-sm:w-full"
+            >
+              <svg className={`w-4 h-4 shrink-0 ${scanning ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              {scanning ? 'Scanning...' : 'Scan Discussions'}
+            </button>
+            <button
+              onClick={() => setShowCustomScan(true)}
+              disabled={scanning}
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] hover:bg-[var(--color-card-border)] transition-colors border border-[var(--color-card-border)] disabled:opacity-50 max-sm:w-full"
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Custom Scan
+            </button>
+            <button
+              onClick={() => setShowAdd(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[var(--color-primary-600)] text-white hover:bg-[var(--color-primary-700)] transition-colors shadow-lg shadow-[var(--color-primary-600)]/20 max-sm:w-full"
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add Item
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3 max-sm:w-full max-sm:flex-col">
-          <button
-            onClick={() => handleScan(false)}
-            disabled={scanning}
-            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] hover:bg-[var(--color-card-border)] transition-colors border border-[var(--color-card-border)] disabled:opacity-50 max-sm:w-full"
-          >
-            <svg className={`w-4 h-4 shrink-0 ${scanning ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            {scanning ? 'Scanning...' : 'Scan (1 day)'}
-          </button>
-          <button
-            onClick={() => setShowCustomScan(true)}
-            disabled={scanning}
-            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] hover:bg-[var(--color-card-border)] transition-colors border border-[var(--color-card-border)] disabled:opacity-50 max-sm:w-full"
-          >
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Custom Scan
-          </button>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[var(--color-primary-600)] text-white hover:bg-[var(--color-primary-700)] transition-colors shadow-lg shadow-[var(--color-primary-600)]/20 max-sm:w-full"
-          >
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Add Item
-          </button>
+
+        {/* ── Pipeline Steps ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-badge-bg)] border border-[var(--color-card-border)]">
+            <div className="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center text-lg shrink-0">🎙️</div>
+            <div>
+              <p className="text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">Step 1</p>
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Source Detection</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">Meeting Transcripts</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-badge-bg)] border border-[var(--color-card-border)]">
+            <div className="w-10 h-10 rounded-lg bg-[var(--color-primary-500)]/20 flex items-center justify-center text-lg shrink-0">🤖</div>
+            <div>
+              <p className="text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">Step 2</p>
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">AI Detection</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{pendingReviewCount} pending review</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-badge-bg)] border border-[var(--color-card-border)]">
+            <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center text-lg shrink-0">✅</div>
+            <div>
+              <p className="text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">Step 3</p>
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Review & Approve</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{unconvertedCount} unconverted</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-badge-bg)] border border-[var(--color-card-border)]">
+            <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center text-lg shrink-0">📋</div>
+            <div>
+              <p className="text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">Step 4</p>
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Task Created</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{convertedCount} tasks</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Arrow connecting the steps ── */}
+        <div className="hidden sm:flex items-center justify-between px-4 mt-2">
+          {['🎙️ Source', '🤖 AI Detect', '✅ Review', '📋 Task'].map((step, i) => (
+            <div key={step} className="flex items-center gap-2">
+              <span className="text-xs text-[var(--color-text-muted)]">{step}</span>
+              {i < 3 && <span className="text-[var(--color-text-muted)] text-xs">→</span>}
+            </div>
+          ))}
         </div>
       </div>
 
+      {/* ════════ PENDING REVIEW SECTION ════════ */}
       {suggestions.length > 0 && (
-        <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-2xl p-5 animate-slide-up">
-          <div className="flex items-center gap-2 mb-4">
-            <svg className="w-5 h-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h2 className="text-sm font-semibold text-yellow-300">Auto-Captured from Discussions</h2>
-            <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full">{suggestions.length} pending</span>
+        <div className="bg-[var(--color-card-bg)] border border-yellow-500/20 rounded-2xl overflow-hidden animate-slide-up">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-yellow-500/10">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <h2 className="text-sm font-semibold text-yellow-300">Pending Review — AI Detected Items</h2>
+              <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full">{suggestions.length} pending</span>
+            </div>
+            <button
+              onClick={() => setSuggestions([])}
+              className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+            >
+              Dismiss All
+            </button>
           </div>
-          <div className="space-y-2">
+          <div className="divide-y divide-[var(--color-card-border)]">
             {suggestions.map(s => (
-              <div key={s.id} className="flex flex-col sm:flex-row items-start gap-3 bg-black/20 rounded-xl p-3 border border-yellow-500/10">
-                <div className="flex-1 min-w-0 w-full sm:w-auto">
-                  <p className="text-sm text-[var(--color-text-primary)] leading-relaxed">{s.description}</p>
-                  <p className="text-xs text-[var(--color-text-muted)] mt-1">Source: {s.source}</p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                  <button
-                    onClick={() => approveSuggestion(s)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-600/20 text-green-300 hover:bg-green-600/30 transition-colors border border-green-500/20"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => dismissSuggestion(s.id)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-500/20 text-gray-400 hover:bg-gray-500/30 transition-colors border border-gray-500/20"
-                  >
-                    Dismiss
-                  </button>
+              <div key={s.id} className="px-5 py-4 hover:bg-yellow-500/5 transition-colors">
+                <div className="flex flex-col sm:flex-row items-start gap-3">
+                  <div className="flex-1 min-w-0 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm">{sourceIcon(s.source)}</span>
+                      <p className="text-xs text-[var(--color-text-muted)]">Source: {s.source}</p>
+                    </div>
+                    <p className="text-sm text-[var(--color-text-primary)] leading-relaxed">{s.description}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                    <button
+                      onClick={() => handleApproveSuggestion(s)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-600/20 text-green-300 hover:bg-green-600/30 transition-colors border border-green-500/20"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Approve & Create Task
+                    </button>
+                    <button
+                      onClick={() => dismissSuggestion(s.id)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-500/20 text-gray-400 hover:bg-gray-500/30 transition-colors border border-gray-500/20"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* ════════ TABS & FILTERS ════════ */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-[var(--color-badge-bg)] border border-[var(--color-card-border)]">
+          {[
+            { key: 'all', label: 'All Items', count: items.length },
+            { key: 'pending', label: 'Unconverted', count: unconvertedCount },
+            { key: 'converted', label: 'Tasks', count: convertedCount },
+          ].map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                tab === t.key
+                  ? 'bg-[var(--color-primary-600)] text-white shadow-sm'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              {t.label}
+              <span className={`ml-1.5 px-1.5 py-0.5 rounded text-[10px] ${
+                tab === t.key ? 'bg-white/15' : 'bg-[var(--color-card-border)]'
+              }`}>
+                {t.count}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -398,22 +539,33 @@ export default function Backlog() {
         <span>{filteredItems.length} item{filteredItems.length !== 1 ? 's' : ''}{filteredItems.length > perPage ? ` — Page ${currentPage} of ${totalPages}` : ''}</span>
       </div>
 
+      {/* ════════ BACKLOG ITEMS LIST ════════ */}
       {paginatedItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <svg className="w-16 h-16 text-[var(--color-text-muted)] mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
           </svg>
-          <p className="text-lg font-medium text-[var(--color-text-secondary)]">No backlog items yet</p>
-          <p className="text-sm text-[var(--color-text-muted)] mt-1 mb-4">Add your first item or scan discussions to capture backlog ideas</p>
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[var(--color-primary-600)] text-white hover:bg-[var(--color-primary-700)] transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Add First Item
-          </button>
+          <p className="text-lg font-medium text-[var(--color-text-secondary)]">
+            {tab === 'pending' ? 'All items converted to tasks!' : tab === 'converted' ? 'No converted items yet' : 'No backlog items yet'}
+          </p>
+          <p className="text-sm text-[var(--color-text-muted)] mt-1 mb-4">
+            {tab === 'pending'
+              ? 'All backlog items have been converted to tasks. Great work!'
+              : tab === 'converted'
+              ? 'Items approved from the review panel will appear here as tasks.'
+              : 'Add your first item or scan discussions to capture backlog ideas'}
+          </p>
+          {tab === 'all' && (
+            <button
+              onClick={() => setShowAdd(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[var(--color-primary-600)] text-white hover:bg-[var(--color-primary-700)] transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add First Item
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -435,6 +587,18 @@ export default function Backlog() {
                     {item.source === 'auto-capture' && (
                       <span className="text-xs font-medium px-2.5 py-0.5 rounded-full border border-purple-500/30 bg-purple-500/20 text-purple-300">
                         Auto-captured
+                      </span>
+                    )}
+                    {item.task_id ? (
+                      <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full border border-green-500/30 bg-green-500/20 text-green-300">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        Task #{item.task_id}
+                      </span>
+                    ) : (
+                      <span className="text-xs font-medium px-2.5 py-0.5 rounded-full border border-gray-500/30 bg-gray-500/20 text-gray-400">
+                        No task
                       </span>
                     )}
                   </div>
@@ -461,6 +625,24 @@ export default function Backlog() {
                       </span>
                     )}
                   </div>
+                  {item.task_id && (
+                    <div className="mt-2 flex items-center gap-2 text-xs bg-green-500/10 rounded-lg px-3 py-1.5 border border-green-500/20 w-fit">
+                      <svg className="w-3.5 h-3.5 text-green-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                      <span className="text-green-300">Task <span className="font-semibold">#{item.task_id}</span> created</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        item.task_status === 'completed' ? 'bg-green-500/20 text-green-300' :
+                        item.task_status === 'in_progress' ? 'bg-blue-500/20 text-blue-300' :
+                        'bg-yellow-500/20 text-yellow-300'
+                      }`}>
+                        {item.task_status?.replace('_', ' ')}
+                      </span>
+                      <a href="/tasks" className="text-[var(--color-primary-400)] hover:text-[var(--color-primary-300)] underline ml-1">
+                        View in Tasks
+                      </a>
+                    </div>
+                  )}
                   {item.image && (
                     <div className="mt-3">
                       <img
@@ -524,6 +706,37 @@ export default function Backlog() {
                     </div>
                   </div>
 
+                  {/* ── Convert to Task button ── */}
+                  {!item.task_id && (
+                    <button
+                      onClick={() => handleConvertToTask(item)}
+                      disabled={convertingId === item.id}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-green-600/20 text-green-300 hover:bg-green-600/30 transition-colors border border-green-500/20 disabled:opacity-50 w-full"
+                    >
+                      {convertingId === item.id ? (
+                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                      )}
+                      {convertingId === item.id ? 'Converting...' : 'Create Task'}
+                    </button>
+                  )}
+
+                  {/* ── Delete ── */}
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors border border-red-500/20 w-full"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete
+                  </button>
                 </div>
               </div>
             </div>
@@ -569,6 +782,7 @@ export default function Backlog() {
         </>
       )}
 
+      {/* ════════ ADD ITEM MODAL ════════ */}
       {showAdd && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={resetForm}>
           <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
@@ -679,6 +893,7 @@ export default function Backlog() {
         </div>
       )}
 
+      {/* ════════ DETAIL MODAL ════════ */}
       {detailItem && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setDetailItem(null)}>
           <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
@@ -703,6 +918,14 @@ export default function Backlog() {
                     Auto-captured
                   </span>
                 )}
+                {detailItem.task_id && (
+                  <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full border border-green-500/30 bg-green-500/20 text-green-300">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                    Task #{detailItem.task_id}
+                  </span>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Description</label>
@@ -725,6 +948,21 @@ export default function Backlog() {
                     </div>
                   </>
                 )}
+                {detailItem.task_id && (
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Linked Task</label>
+                    <p className="text-[var(--color-text-primary)]">
+                      Task #{detailItem.task_id} — {detailItem.task_title || ''}
+                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${
+                        detailItem.task_status === 'completed' ? 'bg-green-500/20 text-green-300' :
+                        detailItem.task_status === 'in_progress' ? 'bg-blue-500/20 text-blue-300' :
+                        'bg-yellow-500/20 text-yellow-300'
+                      }`}>
+                        {detailItem.task_status?.replace('_', ' ')}
+                      </span>
+                    </p>
+                  </div>
+                )}
               </div>
               {detailItem.image && (
                 <div>
@@ -737,6 +975,7 @@ export default function Backlog() {
         </div>
       )}
 
+      {/* ════════ CUSTOM SCAN MODAL ════════ */}
       {showCustomScan && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowCustomScan(false)}>
           <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl w-full max-w-sm shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
