@@ -36,6 +36,7 @@ const statuses = ['pending', 'in_progress', 'completed']
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams()
   const meetingFilter = searchParams.get('meeting')
+  const taskIdFilter = searchParams.get('task')
   const [tasks, setTasks] = useState([])
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
@@ -106,6 +107,7 @@ export default function Tasks() {
     if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false
     if (assigneeFilter !== 'all' && t.assigned_to !== parseInt(assigneeFilter)) return false
     if (sourceFilter !== 'all' && t.source !== sourceFilter) return false
+    if (taskIdFilter && String(t.id) !== taskIdFilter) return false
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       const matchesTitle = t.title.toLowerCase().includes(q)
@@ -132,9 +134,12 @@ export default function Tasks() {
     return map
   }, [nonStatusFiltered, statusFilter])
 
-  const hasActiveFilters = statusFilter !== 'all' || priorityFilter !== 'all' || assigneeFilter !== 'all' || sourceFilter !== 'all' || meetingDropdownFilter !== 'all' || searchQuery || meetingFilter || dateFrom || dateTo
+  const hasActiveFilters = statusFilter !== 'all' || priorityFilter !== 'all' || assigneeFilter !== 'all' || sourceFilter !== 'all' || meetingDropdownFilter !== 'all' || searchQuery || meetingFilter || taskIdFilter || dateFrom || dateTo
 
   const activeFilterChips = []
+  if (taskIdFilter) {
+    activeFilterChips.push({ type: 'Task', label: `Task #${taskIdFilter}`, onClear: () => { setSearchParams({}); setSearchQuery(searchQuery) } })
+  }
   if (meetingFilter) {
     const mtg = tasks.find(t => t.meeting === parseInt(meetingFilter))
     activeFilterChips.push({ type: 'Meeting', label: mtg?.meeting_title || `Meeting #${meetingFilter}`, onClear: () => { setSearchParams({}); setSearchQuery(searchQuery) } })

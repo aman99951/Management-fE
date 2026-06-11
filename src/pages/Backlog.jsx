@@ -638,7 +638,7 @@ export default function Backlog() {
                       }`}>
                         {item.task_status?.replace('_', ' ')}
                       </span>
-                      <a href="/tasks" className="text-[var(--color-primary-400)] hover:text-[var(--color-primary-300)] underline ml-1">
+                      <a href={`/tasks?task=${item.task_id}`} className="text-[var(--color-primary-400)] hover:text-[var(--color-primary-300)] underline ml-1">
                         View in Tasks
                       </a>
                     </div>
