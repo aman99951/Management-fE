@@ -913,8 +913,8 @@ export default function Backlog() {
       )}
 
       {/* ════════ AI GENERATE MODAL ════════ */}
-      {showAiGenerate && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => { setShowAiGenerate(false); setAiPrompt('') }}>
+      {showAiGenerate && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowAiGenerate(false); setAiPrompt('') }}>
           <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl w-full max-w-lg shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-[var(--color-card-border)]">
               <div className="flex items-center gap-3">
@@ -983,7 +983,8 @@ export default function Backlog() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('portal-root')
       )}
 
       {/* ════════ ADD ITEM MODAL ════════ */}
