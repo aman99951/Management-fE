@@ -1078,8 +1078,8 @@ export default function Backlog() {
 
       {/* ════════ DETAIL MODAL ════════ */}
       {detailItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setDetailItem(null)}>
-          <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center pt-[10vh] pb-8 px-4 overflow-y-auto" onClick={() => setDetailItem(null)}>
+          <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl w-full max-w-lg shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-[var(--color-card-border)]">
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Backlog Details</h2>
               <button onClick={() => setDetailItem(null)} className="p-1.5 rounded-lg hover:bg-[var(--color-badge-bg)] text-[var(--color-text-muted)] transition-colors">
