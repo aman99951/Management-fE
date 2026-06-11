@@ -106,7 +106,13 @@ export default function Tasks() {
     if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false
     if (assigneeFilter !== 'all' && t.assigned_to !== parseInt(assigneeFilter)) return false
     if (sourceFilter !== 'all' && t.source !== sourceFilter) return false
-    if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      const matchesTitle = t.title.toLowerCase().includes(q)
+      const matchesId = q.startsWith('#') && String(t.id) === q.slice(1)
+      const matchesIdDirect = String(t.id).startsWith(q)
+      if (!matchesTitle && !matchesId && !matchesIdDirect) return false
+    }
     if (dateFrom && new Date(t.created_at) < new Date(dateFrom)) return false
     if (dateTo) {
       const end = new Date(dateTo)
@@ -415,9 +421,9 @@ export default function Tasks() {
                               >
                                 {t.status === 'completed' && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                               </button>
-                              <div className="flex-1 min-w-0">
-                                <button onClick={() => setSelectedTask(t)} className="text-left w-full">
+                              <div className="flex-1 min-w-0">                                  <button onClick={() => setSelectedTask(t)} className="text-left w-full">
                                   <p className={`text-sm font-semibold text-[var(--color-text-primary)] leading-snug hover:text-[var(--color-primary-500)] transition-colors ${t.status === 'completed' ? 'line-through opacity-50' : ''}`}>
+                                    <span className="text-[var(--color-text-muted)] font-mono text-xs mr-1.5">#{t.id}</span>
                                     {t.title}
                                   </p>
                                 </button>
@@ -620,7 +626,10 @@ function TaskDetailModal({ task, employees, comments, onClose, onStatusChange, o
                 {task.status === 'completed' && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
               </button>
               <div className="min-w-0">
-                <h2 className="text-lg font-bold text-[var(--color-text-primary)] leading-snug">{task.title}</h2>
+                <h2 className="text-lg font-bold text-[var(--color-text-primary)] leading-snug">
+                  <span className="text-[var(--color-text-muted)] font-mono text-base mr-2">#{task.id}</span>
+                  {task.title}
+                </h2>
                 {task.meeting_title && (
                   <p className="text-sm text-[var(--color-text-secondary)] mt-1">From: {task.meeting_title}</p>
                 )}
