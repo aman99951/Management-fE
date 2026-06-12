@@ -9,6 +9,7 @@ export default function Meetings() {
   const [syncing, setSyncing] = useState(false)
   const [checkingId, setCheckingId] = useState(null)
   const [generatingTaskId, setGeneratingTaskId] = useState(null)
+  const [notification, setNotification] = useState(null)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -25,10 +26,25 @@ export default function Meetings() {
 
   const handleSync = async () => {
     setSyncing(true)
-    await api.syncFathom()
-    const updated = await api.getMeetings()
-    setMeetings(updated)
-    setSyncing(false)
+    setNotification(null)
+    try {
+      const result = await api.syncFathom()
+      const updated = await api.getMeetings()
+      setMeetings(updated)
+      setNotification({
+        type: 'success',
+        message: `✅ Synced ${result.synced || 0} meeting${result.synced !== 1 ? 's' : ''}${result.auto_generated_tasks > 0 ? ` — ${result.auto_generated_tasks} task${result.auto_generated_tasks !== 1 ? 's' : ''} auto-generated` : ''}`,
+        timestamp: Date.now(),
+      })
+    } catch (e) {
+      setNotification({
+        type: 'error',
+        message: `❌ Sync failed: ${e.message || 'Unknown error'}`,
+        timestamp: Date.now(),
+      })
+    } finally {
+      setSyncing(false)
+    }
   }
 
   const checkFathom = async (id) => {
@@ -44,15 +60,35 @@ export default function Meetings() {
 
   const generateTasks = async (id) => {
     setGeneratingTaskId(id)
+    setNotification(null)
     try {
       const result = await api.generateTasksForMeeting(id)
       if (result.status === 'exists' || result.status === 'created') {
-        navigate(`/tasks?meeting=${id}`)
+        const tasksCount = result.tasks?.length || 0
+        const emailsCount = result.emails_sent || 0
+        setNotification({
+          type: 'success',
+          message: `✅ ${tasksCount} task${tasksCount !== 1 ? 's' : ''} generated${emailsCount > 0 ? ` — ${emailsCount} email${emailsCount !== 1 ? 's' : ''} sent` : ''}`,
+          meetingId: id,
+          timestamp: Date.now(),
+        })
+        // Refresh meetings list to show updated task counts
+        const updated = await api.getMeetings()
+        setMeetings(updated)
       } else {
-        setGeneratingTaskId(null)
+        setNotification({
+          type: 'error',
+          message: '⚠️ No tasks could be generated from this meeting',
+          timestamp: Date.now(),
+        })
       }
     } catch (e) {
-      alert(e.message || 'Failed to generate tasks')
+      setNotification({
+        type: 'error',
+        message: `❌ ${e.message || 'Failed to generate tasks'}`,
+        timestamp: Date.now(),
+      })
+    } finally {
       setGeneratingTaskId(null)
     }
   }
@@ -191,6 +227,35 @@ export default function Meetings() {
           </div>
         )}
       </div>
+
+      {/* ── Notification Toast ── */}
+      {notification && (
+        <div className={`mb-4 p-4 rounded-2xl border shadow-sm flex items-center justify-between gap-3 animate-fade-in ${
+          notification.type === 'success'
+            ? 'bg-emerald-900/30 border-emerald-700/40 text-emerald-200'
+            : 'bg-red-900/30 border-red-700/40 text-red-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <span className="text-sm">{notification.message}</span>
+            {notification.meetingId && (
+              <button
+                onClick={() => navigate(`/tasks?meeting=${notification.meetingId}`)}
+                className="text-xs font-semibold underline hover:no-underline opacity-80 hover:opacity-100 transition-opacity"
+              >
+                View tasks →
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setNotification(null)}
+            className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center hover:bg-black/20 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {meetings.length === 0 ? (
         <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl p-16 text-center">
