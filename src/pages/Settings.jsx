@@ -8,13 +8,19 @@ export default function Settings() {
   const [session, setSession] = useState(null)
   const [gcConnected, setGcConnected] = useState(false)
   const [gcConnecting, setGcConnecting] = useState(false)
+  const [emailEnabled, setEmailEnabled] = useState(true)
 
   useEffect(() => {
     api.getSession().then(data => {
       setSession(data)
       setGcConnected(data.user?.google_calendar_connected ?? false)
     })
-    api.getFathomConfig().then(data => setConfigured(data.configured))
+    api.getFathomConfig().then(data => {
+      setConfigured(data.configured)
+      if (data.email_notifications_enabled !== undefined) {
+        setEmailEnabled(data.email_notifications_enabled)
+      }
+    })
   }, [])
 
   useEffect(() => {
@@ -222,6 +228,42 @@ export default function Settings() {
               </p>
             )}
           </form>
+        </SectionCard>
+
+        {/* Email Notifications */}
+        <SectionCard
+          icon="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+          title="Email Notifications"
+          desc="Master toggle for all email notifications"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                {emailEnabled ? 'Notifications Enabled' : 'Notifications Disabled'}
+              </p>
+              <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                {emailEnabled
+                  ? 'Task assignments, meeting invites, and action items will be sent via email'
+                  : 'No emails will be sent for tasks, meetings, or action items'}
+              </p>
+            </div>
+            <button
+              onClick={async () => {
+                const next = !emailEnabled
+                setEmailEnabled(next)
+                await api.setEmailNotifications(next)
+              }}
+              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)] focus:ring-offset-2 ${
+                emailEnabled ? 'bg-[var(--color-primary-600)]' : 'bg-[var(--color-badge-bg)]'
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                  emailEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
         </SectionCard>
 
         {/* Webhook URL */}

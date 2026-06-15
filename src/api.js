@@ -66,6 +66,11 @@ export const api = {
   sendTaskAssignmentEmail: (id) =>
     request(`/api/tasks/${id}/send_assignment_email/`, { method: 'POST' }),
 
+  getEmailNotifications: () =>
+    request('/api/fathom/config/'),
+  setEmailNotifications: (enabled) =>
+    request('/api/fathom/config/', { method: 'POST', body: JSON.stringify({ email_notifications_enabled: enabled }) }),
+
   getEmployees: () => request('/api/employees/'),
   createEmployee: (data) =>
     request('/api/employees/', { method: 'POST', body: JSON.stringify(data) }),
