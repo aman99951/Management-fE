@@ -84,8 +84,8 @@ export default function Tasks() {
       api.getTasks(),
       api.getEmployees(),
     ]).then(([tasksData, emps]) => {
-      const aiTasks = tasksData.filter(t => t.source === 'ai' || t.source === 'manual')
-      setTasks(aiTasks)
+      const filtered = tasksData.filter(t => t.source === 'ai' || t.source === 'manual' || t.source === 'fathom')
+      setTasks(filtered)
       setEmployees(emps)
       setLoading(false)
     })
@@ -306,6 +306,7 @@ export default function Tasks() {
             <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className={selectFilterCls}>
               <option value="all">All Sources</option>
               <option value="ai">AI</option>
+              <option value="fathom">Fathom</option>
               <option value="manual">Manual</option>
             </select>
             <svg className={filterArrowCls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
@@ -466,7 +467,7 @@ export default function Tasks() {
                               <div className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
                                 {t.source && (
                                   <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-medium ${t.source === 'ai' ? 'text-[var(--color-primary-500)] bg-[var(--color-primary-50)]' : 'text-[var(--color-text-secondary)] bg-[var(--color-card-bg)]'}`}>
-                                    {t.source === 'ai' ? 'AI' : 'Manual'}
+                                    {t.source === 'ai' ? 'AI' : t.source === 'fathom' ? 'Fathom' : 'Manual'}
                                   </span>
                                 )}
                                 {t.created_at && (
@@ -548,7 +549,7 @@ export default function Tasks() {
           onCreated={() => {
             setShowCreate(false)
             api.getTasks().then(data => {
-              setTasks(data.filter(t => t.source === 'ai' || t.source === 'manual'))
+              setTasks(data.filter(t => t.source === 'ai' || t.source === 'manual' || t.source === 'fathom'))
             })
           }}
         />
@@ -659,7 +660,7 @@ function TaskDetailModal({ task, employees, comments, onClose, onStatusChange, o
             </span>
             {task.source && (
               <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${task.source === 'ai' ? 'text-[var(--color-primary-600)] bg-[var(--color-primary-50)]' : 'text-[var(--color-text-secondary)] bg-[var(--color-badge-bg)]'}`}>
-                {task.source === 'ai' ? 'AI Generated' : 'Manual'}
+                {task.source === 'ai' ? 'AI Generated' : task.source === 'fathom' ? 'Fathom' : 'Manual'}
               </span>
             )}
           </div>
@@ -723,7 +724,7 @@ function TaskDetailModal({ task, employees, comments, onClose, onStatusChange, o
             <div className="p-3 bg-[var(--color-badge-bg)] rounded-xl border border-[var(--color-card-border)]">
               <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Source</p>
               <p className="mt-1 text-sm font-medium text-[var(--color-text-primary)]">
-                {task.source === 'ai' ? 'AI Generated' : task.source === 'manual' ? 'Manual' : '-'}
+                {task.source === 'ai' ? 'AI Generated' : task.source === 'fathom' ? 'Fathom' : task.source === 'manual' ? 'Manual' : '-'}
               </p>
             </div>
             {task.due_date && (
