@@ -1186,7 +1186,7 @@ export default function Backlog() {
       )}
 
       {/* ════════ CUSTOM SCAN MODAL ════════ */}
-      {showCustomScan && (
+      {showCustomScan && createPortal(
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setShowCustomScan(false)}>
           <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl w-full max-w-sm shadow-2xl animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-[var(--color-card-border)]">
@@ -1217,7 +1217,8 @@ export default function Backlog() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.getElementById('portal-root')
       )}
     </div>
   )
