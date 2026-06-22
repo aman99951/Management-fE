@@ -299,6 +299,7 @@ export default function Backlog() {
           source_of_idea: s.source_of_idea || '',
           source: s.source || 'meeting',
           meeting_title: s.meeting_title || '',
+          meeting_date: s.meeting_date || null,
           source_id: s.source_id || null,
           created_at: Date.now(),
           reviewed: false,
@@ -583,6 +584,14 @@ export default function Backlog() {
                             {s.meeting_title}
                           </span>
                         )}
+                        {s.meeting_date && (
+                          <span className="flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            {formatDate(s.meeting_date)}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
@@ -760,7 +769,7 @@ export default function Backlog() {
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      {formatDate(item.created_at)}
+                      {item.meeting_date ? formatDate(item.meeting_date) : formatDate(item.created_at)}
                     </span>
                     {item.source_ref && (
                       <span className="flex items-center gap-1">
