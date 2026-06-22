@@ -54,6 +54,8 @@ export default function Backlog() {
   const [page, setPage] = useState(1)
   const [tab, setTab] = useState('all') // 'pending' | 'converted' | 'all'
   const [convertingId, setConvertingId] = useState(null)
+  const [approvingId, setApprovingId] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
   const perPage = 10
   const fileInputRef = useRef(null)
 
@@ -171,18 +173,20 @@ export default function Backlog() {
   }
 
   const handleDelete = async (id) => {
+    setDeletingId(id)
     try {
       await api.deleteBacklogItem(id)
       setItems(prev => prev.filter(i => i.id !== id))
       showNotif('Item removed', 'info')
     } catch (err) {
-      // If item was already deleted (404), remove from local state gracefully
       if (err.message && err.message.includes('No BacklogItem matches')) {
         setItems(prev => prev.filter(i => i.id !== id))
         showNotif('Item was already removed', 'info')
       } else {
         showNotif(err.message || 'Failed to delete item', 'error')
       }
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -238,8 +242,8 @@ export default function Backlog() {
   }
 
   const handleApproveSuggestion = async (sugg) => {
+    setApprovingId(sugg.id)
     try {
-      // Build a comprehensive description from structured fields
       const descParts = []
       if (sugg.title) descParts.push(`# ${sugg.title}`)
       if (sugg.background) descParts.push(`\n**Background / Problem Statement:**\n${sugg.background}`)
@@ -251,7 +255,7 @@ export default function Backlog() {
 
       const description = descParts.join('\n')
 
-      const created = await api.createBacklogItem({
+      await api.createBacklogItem({
         description: description || sugg.title,
         priority: sugg.priority || 'Medium',
         status: 'Future Consideration',
@@ -259,13 +263,14 @@ export default function Backlog() {
         source_ref: sugg.source,
         owner: sugg.owner || null,
       })
-      // Refresh items
       const data = await api.getBacklogItems()
       setItems(Array.isArray(data) ? data : data.results || [])
       setSuggestions(prev => prev.filter(s => s.id !== sugg.id))
       showNotif('Enhancement added to backlog!')
     } catch (err) {
       showNotif(err.message || 'Failed to approve suggestion', 'error')
+    } finally {
+      setApprovingId(null)
     }
   }
 
@@ -583,12 +588,20 @@ export default function Backlog() {
                     <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                       <button
                         onClick={() => handleApproveSuggestion(s)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-600/20 text-green-300 hover:bg-green-600/30 transition-colors border border-green-500/20"
+                        disabled={approvingId === s.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-600/20 text-green-300 hover:bg-green-600/30 transition-colors border border-green-500/20 disabled:opacity-50"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                        Add to Backlog
+                        {approvingId === s.id ? (
+                          <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        {approvingId === s.id ? 'Adding...' : 'Add to Backlog'}
                       </button>
                       <button
                         onClick={() => dismissSuggestion(s.id)}
@@ -863,12 +876,20 @@ export default function Backlog() {
                   {/* ── Delete ── */}
                   <button
                     onClick={() => handleDelete(item.id)}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors border border-red-500/20 w-full"
+                    disabled={deletingId === item.id}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors border border-red-500/20 w-full disabled:opacity-50"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Delete
+                    {deletingId === item.id ? (
+                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    )}
+                    {deletingId === item.id ? 'Deleting...' : 'Delete'}
                   </button>
                 </div>
               </div>
