@@ -274,10 +274,10 @@ export default function Settings() {
         >
           <div className="bg-[var(--color-badge-bg)] border border-[var(--color-card-border)] rounded-xl px-4 py-3 flex items-center justify-between gap-4">
             <code className="text-sm text-[var(--color-text-secondary)] break-all font-mono">
-              {(import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000') + '/api/fathom/webhook/'}
+              {(import.meta.env.VITE_API_URL || window.location.origin) + '/api/fathom/webhook/'}
             </code>
             <button
-              onClick={() => navigator.clipboard.writeText(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/fathom/webhook/`)}
+              onClick={() => navigator.clipboard.writeText(`${import.meta.env.VITE_API_URL || window.location.origin}/api/fathom/webhook/`)}
               className="shrink-0 px-3 py-1.5 text-xs font-medium bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-lg hover:bg-[var(--color-badge-bg)] hover:border-[var(--color-text-muted)]/30 transition-all"
             >
               Copy
