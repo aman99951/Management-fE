@@ -122,7 +122,17 @@ export const api = {
     request('/api/notifications/mark-read/', { method: 'POST', body: JSON.stringify({ ids }) }),
 
   // Backlog
-  getBacklogItems: () => request('/api/backlog/'),
+  getBacklogItems: (params = {}) => {
+    const query = new URLSearchParams()
+    if (params.page) query.set('page', params.page)
+    if (params.pageSize) query.set('page_size', params.pageSize)
+    if (params.search) query.set('search', params.search)
+    if (params.priority && params.priority !== 'All') query.set('priority', params.priority)
+    if (params.status && params.status !== 'All') query.set('status', params.status)
+    if (params.tab && params.tab !== 'all') query.set('tab', params.tab)
+    const qs = query.toString()
+    return request(`/api/backlog/${qs ? '?' + qs : ''}`)
+  },
   createBacklogItem: (data) =>
     request('/api/backlog/', { method: 'POST', body: JSON.stringify(data) }),
   updateBacklogItem: (id, data) =>

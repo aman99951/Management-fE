@@ -52,11 +52,14 @@ export default function Backlog() {
   const [showCustomScan, setShowCustomScan] = useState(false)
   const [customScanDate, setCustomScanDate] = useState('')
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [totalCount, setTotalCount] = useState(0)
+  const [unconvertedCount, setUnconvertedCount] = useState(0)
+  const [convertedCount, setConvertedCount] = useState(0)
   const [tab, setTab] = useState('all') // 'pending' | 'converted' | 'all'
   const [convertingId, setConvertingId] = useState(null)
   const [approvingId, setApprovingId] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
-  const perPage = 10
   const fileInputRef = useRef(null)
 
   const [form, setForm] = useState({
@@ -68,19 +71,26 @@ export default function Backlog() {
     image_name: '',
   })
 
+  function fetchItems() {
+    setLoading(true)
+    api.getBacklogItems({ page, pageSize, search, priority: priorityFilter, status: statusFilter, tab })
+      .then(data => {
+        setItems(data.results || [])
+        setTotalCount(data.count || 0)
+        if (data.pending_count !== undefined) setUnconvertedCount(data.pending_count)
+        if (data.converted_count !== undefined) setConvertedCount(data.converted_count)
+      })
+      .catch(() => showNotif('Failed to load backlog items', 'error'))
+      .finally(() => setLoading(false))
+  }
+
   useEffect(() => {
-    Promise.all([
-      api.getBacklogItems().then(data => {
-        const arr = Array.isArray(data) ? data : data.results || []
-        setItems(arr)
-      }).catch(() => {
-        showNotif('Failed to load backlog items', 'error')
-      }),
-      api.getEmployees().then(data => {
-        setEmployees(data)
-      }).catch(() => {}),
-    ]).finally(() => setLoading(false))
+    api.getEmployees().then(data => {
+      setEmployees(data)
+    }).catch(() => {})
   }, [])
+
+  useEffect(() => { fetchItems() }, [page, pageSize, search, priorityFilter, statusFilter, tab])
 
   useEffect(() => {
     if (!loading) handleScan(false, 1)
@@ -233,8 +243,7 @@ export default function Backlog() {
         showNotif('Task created automatically from backlog item!', 'success')
       }
       // Refresh the list to show updated task info
-      const data = await api.getBacklogItems()
-      setItems(Array.isArray(data) ? data : data.results || [])
+      fetchItems()
     } catch (err) {
       showNotif(err.message || 'Failed to convert to task', 'error')
     }
@@ -263,8 +272,7 @@ export default function Backlog() {
         source_ref: sugg.source,
         owner: sugg.owner || null,
       })
-      const data = await api.getBacklogItems()
-      setItems(Array.isArray(data) ? data : data.results || [])
+      fetchItems()
       setSuggestions(prev => prev.filter(s => s.id !== sugg.id))
       showNotif('Enhancement added to backlog!')
     } catch (err) {
@@ -309,15 +317,11 @@ export default function Backlog() {
     } catch {}
 
     if (found.length > 0) {
-      const existingSources = new Set(
+      const existingSourceRefs = new Set(
         items.filter(i => i.source_ref).map(i => i.source_ref)
       )
-      const existingTitles = new Set(
-        items.map(i => i.title?.trim().toLowerCase())
-      )
       const newFound = found.filter(s =>
-        !existingSources.has(s.source) &&
-        !existingTitles.has(s.title.trim().toLowerCase())
+        s.source && !existingSourceRefs.has(s.source)
       )
       if (autoApprove) {
         let count = 0
@@ -335,7 +339,7 @@ export default function Backlog() {
         }
         if (count > 0) {
           showNotif(`Auto-captured ${count} enhancement item(s)`)
-          api.getBacklogItems().then(data => setItems(Array.isArray(data) ? data : data.results || []))
+          fetchItems()
         }
       } else {
         setSuggestions(prev => [...newFound, ...prev])
@@ -365,27 +369,9 @@ export default function Backlog() {
     await handleScan(false, daysBack)
   }
 
-  useEffect(() => { setPage(1) }, [search, priorityFilter, statusFilter, tab])
-
-  // Filter items by tab
-  const itemsByTab = items.filter(item => {
-    if (tab === 'pending') return !item.task_id && item.status !== 'Done'
-    if (tab === 'converted') return item.task_id
-    return true
-  })
-
-  const filteredItems = itemsByTab
-    .filter(item => {
-      if (search && !item.description?.toLowerCase().includes(search.toLowerCase())) return false
-      if (priorityFilter !== 'All' && item.priority !== priorityFilter) return false
-      if (statusFilter !== 'All' && item.status !== statusFilter) return false
-      return true
-    })
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / perPage))
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
   const currentPage = Math.min(page, totalPages)
-  const paginatedItems = filteredItems.slice((currentPage - 1) * perPage, currentPage * perPage)
+  const paginatedItems = items
 
   if (loading) {
     return (
@@ -397,8 +383,6 @@ export default function Backlog() {
 
   // ── Pipeline stats ──
   const pendingReviewCount = suggestions.length
-  const unconvertedCount = items.filter(i => !i.task_id && i.status !== 'Done').length
-  const convertedCount = items.filter(i => i.task_id).length
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -632,13 +616,13 @@ export default function Backlog() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex items-center gap-1 p-1 rounded-xl bg-[var(--color-badge-bg)] border border-[var(--color-card-border)]">
           {[
-            { key: 'all', label: 'All Items', count: items.length },
+            { key: 'all', label: 'All Items', count: totalCount },
             { key: 'pending', label: 'Unconverted', count: unconvertedCount },
             { key: 'converted', label: 'Tasks', count: convertedCount },
           ].map(t => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => { setTab(t.key); setPage(1) }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 tab === t.key
                   ? 'bg-[var(--color-primary-600)] text-white shadow-sm'
@@ -665,13 +649,13 @@ export default function Backlog() {
             type="text"
             placeholder="Search backlog..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setPage(1) }}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all"
           />
         </div>
         <select
           value={priorityFilter}
-          onChange={e => setPriorityFilter(e.target.value)}
+          onChange={e => { setPriorityFilter(e.target.value); setPage(1) }}
           className="px-4 py-2.5 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all cursor-pointer"
         >
           {PRIORITIES.map(p => (
@@ -680,7 +664,7 @@ export default function Backlog() {
         </select>
         <select
           value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
+          onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
           className="px-4 py-2.5 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all cursor-pointer"
         >
           <option value="All">All Statuses</option>
@@ -691,7 +675,7 @@ export default function Backlog() {
       </div>
 
       <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
-        <span>{filteredItems.length} item{filteredItems.length !== 1 ? 's' : ''}{filteredItems.length > perPage ? ` — Page ${currentPage} of ${totalPages}` : ''}</span>
+        <span>{totalCount} item{totalCount !== 1 ? 's' : ''}{totalCount > pageSize ? ` — Page ${currentPage} of ${totalPages}` : ''}</span>
       </div>
 
       {/* ════════ BACKLOG ITEMS LIST ════════ */}
@@ -908,9 +892,24 @@ export default function Backlog() {
 
         {totalPages > 1 && (
           <div className="flex flex-col sm:flex-row items-center justify-between pt-2 gap-3">
-            <p className="text-xs text-[var(--color-text-muted)]">
-              Showing {(currentPage - 1) * perPage + 1}–{Math.min(currentPage * perPage, filteredItems.length)} of {filteredItems.length}
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-[var(--color-text-muted)]">
+                Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalCount)} of {totalCount}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-[var(--color-text-muted)]">Per page:</label>
+                <select
+                  value={pageSize}
+                  onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
+                  className="px-2 py-1 rounded-lg text-xs bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 cursor-pointer"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage(currentPage - 1)}
