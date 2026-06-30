@@ -51,6 +51,7 @@ export default function Backlog() {
   const [detailItem, setDetailItem] = useState(null)
   const [showCustomScan, setShowCustomScan] = useState(false)
   const [customScanDate, setCustomScanDate] = useState('')
+  const [scanDaysBack, setScanDaysBack] = useState(1)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [totalCount, setTotalCount] = useState(0)
@@ -291,10 +292,12 @@ export default function Backlog() {
     let found = []
     let timedOut = false
     let remaining = 0
+    let processedMeetings = 0
     try {
       const result = await api.scanBacklogKeywords(daysBack)
       timedOut = result.timed_out
       remaining = result.remaining_meetings || 0
+      processedMeetings = result.processed_meetings || 0
       if (result.items && result.items.length > 0) {
         const mapped = result.items.map((s, idx) => ({
           id: 'sugg_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2, 8),
@@ -343,12 +346,12 @@ export default function Backlog() {
         }
       } else {
         setSuggestions(prev => [...newFound, ...prev])
-        let msg = `Found ${newFound.length} product enhancement candidate(s) — review below`
+        let msg = `Found ${newFound.length} product enhancement candidate(s) (scanned ${processedMeetings} meeting(s)) — review below`
         if (timedOut) msg += `. Scan timed out — ${remaining} meeting(s) still unprocessed. Run scan again to continue.`
         showNotif(msg)
       }
     } else {
-      let msg = 'No enhancement candidates found in discussions'
+      let msg = `No enhancement candidates found (scanned ${processedMeetings} meeting(s))`
       if (timedOut) msg += `. Scan timed out — ${remaining} meeting(s) still unprocessed. Try scanning fewer days.`
       showNotif(msg, timedOut ? 'warning' : 'info')
     }
@@ -401,9 +404,35 @@ export default function Backlog() {
             <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Backlog Pipeline</h1>
             <p className="text-sm text-[var(--color-text-secondary)] mt-1">Meetings → AI Detection → Review & Approve → Auto-create Tasks</p>
           </div>
-          <div className="flex items-center gap-3 max-sm:w-full max-sm:flex-col">
+          <div className="flex items-center gap-2 max-sm:w-full max-sm:flex-col">
+            <div className="flex items-center gap-1 relative group">
+              <input
+                type="number"
+                min="0"
+                max="365"
+                value={scanDaysBack}
+                onChange={e => setScanDaysBack(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-14 px-2 py-2 rounded-xl text-sm text-center bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary-500)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <span className="text-xs text-[var(--color-text-muted)] whitespace-nowrap">days</span>
+              <div className="relative">
+                <svg className="w-4 h-4 text-[var(--color-text-muted)] cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 110 20 10 10 0 010-20z" />
+                </svg>
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2 rounded-lg bg-[var(--color-card-bg)] border border-[var(--color-card-border)] text-xs text-[var(--color-text-secondary)] shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                  <div className="space-y-1">
+                    <p><span className="text-[var(--color-text-primary)] font-medium">0</span> → scan today's meetings only</p>
+                    <p><span className="text-[var(--color-text-primary)] font-medium">1</span> → scan today + yesterday (default)</p>
+                    <p><span className="text-[var(--color-text-primary)] font-medium">7</span> → scan last 7 days</p>
+                    <p><span className="text-[var(--color-text-primary)] font-medium">30</span> → scan last 30 days</p>
+                    <p><span className="text-[var(--color-text-primary)] font-medium">365</span> → max scan range</p>
+                  </div>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-[var(--color-card-bg)] border-r border-b border-[var(--color-card-border)] rotate-45 -mt-1"></div>
+                </div>
+              </div>
+            </div>
             <button
-              onClick={() => handleScan(false)}
+              onClick={() => handleScan(false, scanDaysBack)}
               disabled={scanning}
               className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] hover:bg-[var(--color-card-border)] transition-colors border border-[var(--color-card-border)] disabled:opacity-50 max-sm:w-full"
             >
