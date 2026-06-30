@@ -455,7 +455,7 @@ export default function Backlog() {
                 <svg className="w-4 h-4 text-[var(--color-text-muted)] cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 110 20 10 10 0 010-20z" />
                 </svg>
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2 rounded-lg bg-[var(--color-card-bg)] border border-[var(--color-card-border)] text-xs text-[var(--color-text-secondary)] shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 p-2 rounded-lg bg-[var(--color-card-bg)] border border-[var(--color-card-border)] text-xs text-[var(--color-text-secondary)] shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                   <div className="space-y-1">
                     <p><span className="text-[var(--color-text-primary)] font-medium">0</span> → scan today's meetings only</p>
                     <p><span className="text-[var(--color-text-primary)] font-medium">1</span> → scan today + yesterday (default)</p>
@@ -463,7 +463,7 @@ export default function Backlog() {
                     <p><span className="text-[var(--color-text-primary)] font-medium">30</span> → scan last 30 days</p>
                     <p><span className="text-[var(--color-text-primary)] font-medium">365</span> → max scan range</p>
                   </div>
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-[var(--color-card-bg)] border-r border-b border-[var(--color-card-border)] rotate-45 -mt-1"></div>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-2 h-2 bg-[var(--color-card-bg)] border-l border-t border-[var(--color-card-border)] rotate-45 mb-0.5"></div>
                 </div>
               </div>
             </div>
