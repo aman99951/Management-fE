@@ -148,4 +148,6 @@ export const api = {
     request(`/api/backlog/${id}/convert_to_task/`, { method: 'POST' }),
   autoRollWeeks: () =>
     request('/api/backlog/auto_roll_weeks/', { method: 'POST' }),
+  dismissSuggestion: (meetingId, contentHash) =>
+    request('/api/backlog/dismiss-suggestion/', { method: 'POST', body: JSON.stringify({ meeting_id: meetingId, content_hash: contentHash }) }),
 }

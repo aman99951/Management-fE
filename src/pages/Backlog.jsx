@@ -306,7 +306,7 @@ export default function Backlog() {
         priority: sugg.priority || 'Medium',
         status: 'Future Consideration',
         source: 'auto-capture',
-        source_ref: sugg.source,
+        source_ref: sugg.content_hash,
         owner: sugg.owner || null,
       })
       fetchItems()
@@ -319,13 +319,16 @@ export default function Backlog() {
     }
   }
 
-  const dismissSuggestion = (id) => {
-    setSuggestions(prev => prev.filter(s => s.id !== id))
+  const handleDismissSuggestion = async (sugg) => {
+    try {
+      await api.dismissSuggestion(sugg.meeting_id, sugg.content_hash)
+    } catch {}
+    setSuggestions(prev => prev.filter(s => s.id !== sugg.id))
   }
 
   const handleScan = async (autoApprove = false, daysBack = 1) => {
     setScanning(true)
-    let found = []
+    let newItems = []
     let timedOut = false
     let remaining = 0
     let processedMeetings = 0
@@ -335,43 +338,37 @@ export default function Backlog() {
       remaining = result.remaining_meetings || 0
       processedMeetings = result.processed_meetings || 0
       if (result.items && result.items.length > 0) {
-        const mapped = result.items.map((s, idx) => ({
+        newItems = result.items.map((s, idx) => ({
           id: 'sugg_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2, 8),
+          content_hash: s.content_hash || '',
+          meeting_id: s.meeting_id,
           title: s.title || '',
           background: s.background || '',
           proposed_enhancement: s.proposed_enhancement || '',
           expected_benefits: s.expected_benefits || '',
           stakeholders: s.stakeholders || '',
           priority: s.priority || 'Medium',
+          source: 'meeting',
           source_of_idea: s.source_of_idea || '',
-          source: s.source || 'meeting',
           meeting_title: s.meeting_title || '',
           meeting_date: s.meeting_date || null,
-          source_id: s.source_id || null,
           created_at: Date.now(),
           reviewed: false,
         }))
-        found = [...found, ...mapped]
       }
     } catch {}
 
-    if (found.length > 0) {
-      const existingSourceRefs = new Set(
-        items.filter(i => i.source_ref).map(i => i.source_ref)
-      )
-      const newFound = found.filter(s =>
-        s.source && !existingSourceRefs.has(s.source)
-      )
+    if (newItems.length > 0) {
       if (autoApprove) {
         let count = 0
-        for (const s of newFound) {
+        for (const s of newItems) {
           try {
-            const created = await api.createBacklogItem({
+            await api.createBacklogItem({
               description: s.background || s.title,
               priority: s.priority || 'Medium',
               status: 'Future Consideration',
               source: 'auto-capture',
-              source_ref: s.source,
+              source_ref: s.content_hash,
             })
             count++
           } catch {}
@@ -381,13 +378,13 @@ export default function Backlog() {
           fetchItems()
         }
       } else {
-        setSuggestions(prev => [...newFound, ...prev])
-        let msg = `Found ${newFound.length} product enhancement candidate(s) (scanned ${processedMeetings} meeting(s)) — review below`
+        setSuggestions(prev => [...newItems, ...prev])
+        let msg = `Found ${newItems.length} new product enhancement candidate(s) (scanned ${processedMeetings} meeting(s)) — review below`
         if (timedOut) msg += `. Scan timed out — ${remaining} meeting(s) still unprocessed. Run scan again to continue.`
         showNotif(msg)
       }
     } else {
-      let msg = `No enhancement candidates found (scanned ${processedMeetings} meeting(s))`
+      let msg = `No new enhancement candidates found (scanned ${processedMeetings} meeting(s))`
       if (timedOut) msg += `. Scan timed out — ${remaining} meeting(s) still unprocessed. Try scanning fewer days.`
       showNotif(msg, timedOut ? 'warning' : 'info')
     }
@@ -662,7 +659,7 @@ export default function Backlog() {
                         {approvingId === s.id ? 'Adding...' : 'Add to Backlog'}
                       </button>
                       <button
-                        onClick={() => dismissSuggestion(s.id)}
+                        onClick={() => handleDismissSuggestion(s)}
                         className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-500/20 text-gray-400 hover:bg-gray-500/30 transition-colors border border-gray-500/20"
                       >
                         Dismiss
