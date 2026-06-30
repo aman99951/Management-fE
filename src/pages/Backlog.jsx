@@ -25,6 +25,25 @@ function formatDate(ts) {
   return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+function getWeekNumber(date) {
+  const d = new Date(date)
+  d.setHours(0,0,0,0)
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
+  const jan1 = new Date(d.getFullYear(), 0, 1)
+  return Math.ceil((((d - jan1) / 86400000) + jan1.getDay() + 1) / 7)
+}
+
+function getWeekOptions() {
+  const now = new Date()
+  const current = getWeekNumber(now)
+  const year = now.getFullYear()
+  const weeks = []
+  for (let w = current; w <= current + 5; w++) {
+    weeks.push({ value: `W${w}`, label: `W${w} (${year})` })
+  }
+  return weeks
+}
+
 function sourceIcon(source) {
   if (!source) return null
   const s = source.toLowerCase()
@@ -58,23 +77,27 @@ export default function Backlog() {
   const [unconvertedCount, setUnconvertedCount] = useState(0)
   const [convertedCount, setConvertedCount] = useState(0)
   const [tab, setTab] = useState('all') // 'pending' | 'converted' | 'all'
+  const [releaseWeekFilter, setReleaseWeekFilter] = useState('')
   const [convertingId, setConvertingId] = useState(null)
   const [approvingId, setApprovingId] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
   const fileInputRef = useRef(null)
+
+  const WEEK_OPTIONS = getWeekOptions()
 
   const [form, setForm] = useState({
     description: '',
     priority: 'Medium',
     owner: '',
     status: 'New',
+    release_week: WEEK_OPTIONS.length > 0 ? WEEK_OPTIONS[0].value : '',
     image_data: '',
     image_name: '',
   })
 
   function fetchItems() {
     setLoading(true)
-    api.getBacklogItems({ page, pageSize, search, priority: priorityFilter, status: statusFilter, tab })
+    api.getBacklogItems({ page, pageSize, search, priority: priorityFilter, status: statusFilter, tab, release_week: releaseWeekFilter })
       .then(data => {
         setItems(data.results || [])
         setTotalCount(data.count || 0)
@@ -91,10 +114,13 @@ export default function Backlog() {
     }).catch(() => {})
   }, [])
 
-  useEffect(() => { fetchItems() }, [page, pageSize, search, priorityFilter, statusFilter, tab])
+  useEffect(() => { fetchItems() }, [page, pageSize, search, priorityFilter, statusFilter, tab, releaseWeekFilter])
 
   useEffect(() => {
-    if (!loading) handleScan(false, 1)
+    if (!loading) {
+      handleScan(false, 1)
+      api.autoRollWeeks().catch(() => {})
+    }
   }, [loading])
 
   // Lock body scroll when any modal is open (same pattern as Tasks page)
@@ -155,7 +181,7 @@ export default function Backlog() {
   }
 
   const resetForm = () => {
-    setForm({ description: '', priority: 'Medium', owner: '', status: 'New', image_data: '', image_name: '' })
+    setForm({ description: '', priority: 'Medium', owner: '', status: 'New', release_week: WEEK_OPTIONS.length > 0 ? WEEK_OPTIONS[0].value : '', image_data: '', image_name: '' })
     setShowAdd(false)
   }
 
@@ -172,6 +198,7 @@ export default function Backlog() {
         priority: form.priority,
         owner: form.owner || null,
         status: form.status,
+        release_week: form.release_week,
         image: form.image_data || null,
       })
       setItems(prev => [created, ...prev])
@@ -225,6 +252,15 @@ export default function Backlog() {
       setItems(prev => prev.map(i => i.id === id ? { ...i, ...updated } : i))
     } catch (err) {
       showNotif(err.message || 'Failed to update assignee', 'error')
+    }
+  }
+
+  const handleReleaseWeekChange = async (id, week) => {
+    try {
+      const updated = await api.updateBacklogItem(id, { release_week: week })
+      setItems(prev => prev.map(i => i.id === id ? { ...i, ...updated } : i))
+    } catch (err) {
+      showNotif(err.message || 'Failed to update release week', 'error')
     }
   }
 
@@ -703,6 +739,19 @@ export default function Backlog() {
         </select>
       </div>
 
+      <div>
+        <select
+          value={releaseWeekFilter}
+          onChange={e => { setReleaseWeekFilter(e.target.value); setPage(1) }}
+          className="px-4 py-2 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all cursor-pointer"
+        >
+          <option value="">All Weeks</option>
+          {getWeekOptions().map(w => (
+            <option key={w.value} value={w.value}>{w.label}</option>
+          ))}
+        </select>
+      </div>
+
       <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
         <span>{totalCount} item{totalCount !== 1 ? 's' : ''}{totalCount > pageSize ? ` — Page ${currentPage} of ${totalPages}` : ''}</span>
       </div>
@@ -752,6 +801,11 @@ export default function Backlog() {
                     <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${STATUS_COLORS[item.status] || STATUS_COLORS.New}`}>
                       {item.status}
                     </span>
+                    {item.release_week && (
+                      <span className="text-xs font-medium px-2.5 py-0.5 rounded-full border border-[var(--color-primary-500)]/30 bg-[var(--color-primary-500)]/10 text-[var(--color-primary-400)]">
+                        {item.release_week}
+                      </span>
+                    )}
                     {item.source === 'auto-capture' && (
                       <span className="text-xs font-medium px-2.5 py-0.5 rounded-full border border-purple-500/30 bg-purple-500/20 text-purple-300">
                         Auto-captured
@@ -866,6 +920,21 @@ export default function Backlog() {
                         <option value="">Unassigned</option>
                         {employees.map(emp => (
                           <option key={emp.id} value={emp.id}>{emp.name || emp.email}</option>
+                        ))}
+                      </select>
+                      <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[var(--color-text-muted)] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    <div className="relative flex-1 sm:flex-none">
+                      <select
+                        value={item.release_week || ''}
+                        onChange={e => handleReleaseWeekChange(item.id, e.target.value)}
+                        className="appearance-none w-full px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] cursor-pointer pr-7 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40"
+                      >
+                        <option value="">No week</option>
+                        {WEEK_OPTIONS.map(w => (
+                          <option key={w.value} value={w.value}>{w.label}</option>
                         ))}
                       </select>
                       <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[var(--color-text-muted)] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1108,6 +1177,18 @@ export default function Backlog() {
                   <option value="">Unassigned</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>{emp.name || emp.email}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Release Week</label>
+                <select
+                  value={form.release_week}
+                  onChange={e => setForm(prev => ({ ...prev, release_week: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all cursor-pointer"
+                >
+                  {WEEK_OPTIONS.map(w => (
+                    <option key={w.value} value={w.value}>{w.label}</option>
                   ))}
                 </select>
               </div>

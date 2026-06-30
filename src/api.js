@@ -130,6 +130,7 @@ export const api = {
     if (params.priority && params.priority !== 'All') query.set('priority', params.priority)
     if (params.status && params.status !== 'All') query.set('status', params.status)
     if (params.tab && params.tab !== 'all') query.set('tab', params.tab)
+    if (params.release_week) query.set('release_week', params.release_week)
     const qs = query.toString()
     return request(`/api/backlog/${qs ? '?' + qs : ''}`)
   },
@@ -145,4 +146,6 @@ export const api = {
     request('/api/backlog/scan/', { method: 'POST', body: JSON.stringify({ days_back: daysBack }) }),
   convertBacklogToTask: (id) =>
     request(`/api/backlog/${id}/convert_to_task/`, { method: 'POST' }),
+  autoRollWeeks: () =>
+    request('/api/backlog/auto_roll_weeks/', { method: 'POST' }),
 }
