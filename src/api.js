@@ -131,6 +131,8 @@ export const api = {
     if (params.status && params.status !== 'All') query.set('status', params.status)
     if (params.tab && params.tab !== 'all') query.set('tab', params.tab)
     if (params.release_week) query.set('release_week', params.release_week)
+    if (params.date_from) query.set('date_from', params.date_from)
+    if (params.date_to) query.set('date_to', params.date_to)
     const qs = query.toString()
     return request(`/api/backlog/${qs ? '?' + qs : ''}`)
   },

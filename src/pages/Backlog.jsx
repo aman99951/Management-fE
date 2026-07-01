@@ -66,6 +66,8 @@ export default function Backlog() {
   const [convertedCount, setConvertedCount] = useState(0)
   const [tab, setTab] = useState('all') // 'pending' | 'converted' | 'all'
   const [releaseWeekFilter, setReleaseWeekFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [convertingId, setConvertingId] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
   const fileInputRef = useRef(null)
@@ -84,7 +86,7 @@ export default function Backlog() {
 
   function fetchItems() {
     setLoading(true)
-    api.getBacklogItems({ page, pageSize, search, priority: priorityFilter, status: statusFilter, tab, release_week: releaseWeekFilter })
+    api.getBacklogItems({ page, pageSize, search, priority: priorityFilter, status: statusFilter, tab, release_week: releaseWeekFilter, date_from: dateFrom, date_to: dateTo })
       .then(data => {
         setItems(data.results || [])
         setTotalCount(data.count || 0)
@@ -101,7 +103,7 @@ export default function Backlog() {
     }).catch(() => {})
   }, [])
 
-  useEffect(() => { fetchItems() }, [page, pageSize, search, priorityFilter, statusFilter, tab, releaseWeekFilter])
+  useEffect(() => { fetchItems() }, [page, pageSize, search, priorityFilter, statusFilter, tab, releaseWeekFilter, dateFrom, dateTo])
 
   useEffect(() => {
     if (!loading) api.autoRollWeeks().catch(() => {})
@@ -406,7 +408,7 @@ export default function Backlog() {
         </select>
       </div>
 
-      <div>
+      <div className="flex flex-wrap gap-3">
         <select
           value={releaseWeekFilter}
           onChange={e => { setReleaseWeekFilter(e.target.value); setPage(1) }}
@@ -417,6 +419,20 @@ export default function Backlog() {
             <option key={w.value} value={w.value}>{w.label}</option>
           ))}
         </select>
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={e => { setDateFrom(e.target.value); setPage(1) }}
+          placeholder="Date from"
+          className="px-4 py-2 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all"
+        />
+        <input
+          type="date"
+          value={dateTo}
+          onChange={e => { setDateTo(e.target.value); setPage(1) }}
+          placeholder="Date to"
+          className="px-4 py-2 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all"
+        />
       </div>
 
       <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
