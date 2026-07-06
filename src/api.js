@@ -133,6 +133,9 @@ export const api = {
     if (params.release_week) query.set('release_week', params.release_week)
     if (params.date_from) query.set('date_from', params.date_from)
     if (params.date_to) query.set('date_to', params.date_to)
+    if (params.owner) query.set('owner', params.owner)
+    if (params.created_from) query.set('created_from', params.created_from)
+    if (params.created_to) query.set('created_to', params.created_to)
     const qs = query.toString()
     return request(`/api/backlog/${qs ? '?' + qs : ''}`)
   },
@@ -148,6 +151,8 @@ export const api = {
     request('/api/backlog/scan/', { method: 'POST', body: JSON.stringify({ days_back: daysBack }) }),
   convertBacklogToTask: (id) =>
     request(`/api/backlog/${id}/convert_to_task/`, { method: 'POST' }),
+  closeBacklogItem: (id) =>
+    request(`/api/backlog/${id}/close/`, { method: 'POST' }),
   autoRollWeeks: () =>
     request('/api/backlog/auto_roll_weeks/', { method: 'POST' }),
   dismissSuggestion: (meetingId, contentHash) =>

@@ -269,6 +269,63 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Backlog Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl p-6">
+          <h2 className="text-base font-semibold text-[var(--color-text-primary)] mb-5">Backlog Overview</h2>
+          <div className="grid grid-cols-2 gap-4 mb-5">
+            <div className="bg-[var(--color-badge-bg)] rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-[var(--color-text-primary)]">{stats.total_backlog ?? '—'}</p>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1">Total Items</p>
+            </div>
+            <div className="bg-[var(--color-badge-bg)] rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-[var(--color-primary-500)]">{stats.pending_backlog ?? '—'}</p>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-1">Pending</p>
+            </div>
+          </div>
+          <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">By Assignee</h3>
+          {(stats.backlog_by_assignee || []).length === 0 ? (
+            <p className="text-xs text-[var(--color-text-muted)] text-center py-4">No pending items assigned to anyone</p>
+          ) : (
+            <div className="space-y-2">
+              {(stats.backlog_by_assignee || []).map(a => (
+                <div key={a.id} className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--color-text-secondary)]">{a.name}</span>
+                  <span className="text-sm font-semibold text-[var(--color-text-primary)]">{a.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="lg:col-span-2 bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl p-6">
+          <h2 className="text-base font-semibold text-[var(--color-text-primary)] mb-5">Pending Backlog Aging</h2>
+          {(stats.backlog_aging || []).length === 0 ? (
+            <p className="text-sm text-[var(--color-text-muted)] text-center py-8">No pending backlog items</p>
+          ) : (
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {(stats.backlog_aging || []).map(a => (
+                <div key={a.id} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--color-badge-bg)]">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-[var(--color-text-primary)] truncate">{a.description}</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className={`text-xs font-medium ${a.age_days > 14 ? 'text-red-400' : a.age_days > 7 ? 'text-yellow-400' : 'text-[var(--color-text-muted)]'}`}>
+                        {a.age_days}d old
+                      </span>
+                      {a.eta && (
+                        <span className={`text-xs ${a.overdue ? 'text-red-400 font-medium' : 'text-[var(--color-text-secondary)]'}`}>
+                          {a.overdue ? 'Overdue' : `ETA ${a.eta}`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Quick Actions */}
       <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl p-6">
         <h2 className="text-base font-semibold text-[var(--color-text-primary)] mb-4">Quick Actions</h2>

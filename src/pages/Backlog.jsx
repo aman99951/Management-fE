@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { api } from '../api'
 
 const PRIORITIES = ['All', 'Low', 'Medium', 'High', 'Critical']
-const STATUSES = ['New', 'Reviewed', 'In Progress', 'Done', 'Future Consideration']
+const STATUSES = ['New', 'Reviewed', 'In Progress', 'Done', 'Closed', 'Future Consideration']
 
 const PRIORITY_COLORS = {
   Low: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
@@ -17,6 +17,7 @@ const STATUS_COLORS = {
   Reviewed: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
   'In Progress': 'bg-purple-500/20 text-purple-300 border-purple-500/30',
   Done: 'bg-green-500/20 text-green-300 border-green-500/30',
+  Closed: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
   'Future Consideration': 'bg-purple-500/20 text-purple-300 border-purple-500/30',
 }
 
@@ -66,10 +67,11 @@ export default function Backlog() {
   const [convertedCount, setConvertedCount] = useState(0)
   const [tab, setTab] = useState('all') // 'pending' | 'converted' | 'all'
   const [releaseWeekFilter, setReleaseWeekFilter] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [assigneeFilter, setAssigneeFilter] = useState('')
+  const [createdFrom, setCreatedFrom] = useState('')
+  const [createdTo, setCreatedTo] = useState('')
   const [convertingId, setConvertingId] = useState(null)
-  const [deletingId, setDeletingId] = useState(null)
+  const [closingId, setClosingId] = useState(null)
   const fileInputRef = useRef(null)
 
   const WEEK_OPTIONS = getWeekOptions()
@@ -80,13 +82,14 @@ export default function Backlog() {
     owner: '',
     status: 'New',
     release_week: WEEK_OPTIONS.length > 0 ? WEEK_OPTIONS[0].value : '',
+    eta: '',
     image_data: '',
     image_name: '',
   })
 
   function fetchItems() {
     setLoading(true)
-    api.getBacklogItems({ page, pageSize, search, priority: priorityFilter, status: statusFilter, tab, release_week: releaseWeekFilter, date_from: dateFrom, date_to: dateTo })
+    api.getBacklogItems({ page, pageSize, search, priority: priorityFilter, status: statusFilter, tab, release_week: releaseWeekFilter, owner: assigneeFilter, created_from: createdFrom, created_to: createdTo })
       .then(data => {
         setItems(data.results || [])
         setTotalCount(data.count || 0)
@@ -103,7 +106,7 @@ export default function Backlog() {
     }).catch(() => {})
   }, [])
 
-  useEffect(() => { fetchItems() }, [page, pageSize, search, priorityFilter, statusFilter, tab, releaseWeekFilter, dateFrom, dateTo])
+  useEffect(() => { fetchItems() }, [page, pageSize, search, priorityFilter, statusFilter, tab, releaseWeekFilter, assigneeFilter, createdFrom, createdTo])
 
   useEffect(() => {
     if (!loading) api.autoRollWeeks().catch(() => {})
@@ -167,7 +170,7 @@ export default function Backlog() {
   }
 
   const resetForm = () => {
-    setForm({ description: '', priority: 'Medium', owner: '', status: 'New', release_week: WEEK_OPTIONS.length > 0 ? WEEK_OPTIONS[0].value : '', image_data: '', image_name: '' })
+    setForm({ description: '', priority: 'Medium', owner: '', status: 'New', release_week: WEEK_OPTIONS.length > 0 ? WEEK_OPTIONS[0].value : '', eta: '', image_data: '', image_name: '' })
     setShowAdd(false)
   }
 
@@ -185,6 +188,7 @@ export default function Backlog() {
         owner: form.owner || null,
         status: form.status,
         release_week: form.release_week,
+        eta: form.eta || null,
         image: form.image_data || null,
       })
       setItems(prev => [created, ...prev])
@@ -196,21 +200,20 @@ export default function Backlog() {
     setSubmitting(false)
   }
 
-  const handleDelete = async (id) => {
-    setDeletingId(id)
+  const handleClose = async (id) => {
+    setClosingId(id)
     try {
-      await api.deleteBacklogItem(id)
-      setItems(prev => prev.filter(i => i.id !== id))
-      showNotif('Item removed', 'info')
-    } catch (err) {
-      if (err.message && err.message.includes('No BacklogItem matches')) {
-        setItems(prev => prev.filter(i => i.id !== id))
-        showNotif('Item was already removed', 'info')
+      const result = await api.closeBacklogItem(id)
+      setItems(prev => prev.map(i => i.id === id ? { ...i, ...result.backlog_item } : i))
+      if (result.closed_task) {
+        showNotif('Backlog closed. Linked task also closed.', 'success')
       } else {
-        showNotif(err.message || 'Failed to delete item', 'error')
+        showNotif('Backlog item closed', 'success')
       }
+    } catch (err) {
+      showNotif(err.message || 'Failed to close item', 'error')
     } finally {
-      setDeletingId(null)
+      setClosingId(null)
     }
   }
 
@@ -250,6 +253,15 @@ export default function Backlog() {
     }
   }
 
+  const handleEtaChange = async (id, eta) => {
+    try {
+      const updated = await api.updateBacklogItem(id, { eta: eta || null })
+      setItems(prev => prev.map(i => i.id === id ? { ...i, ...updated } : i))
+    } catch (err) {
+      showNotif(err.message || 'Failed to update ETA', 'error')
+    }
+  }
+
   const getOwnerName = (owner) => {
     if (!owner) return 'Unassigned'
     const emp = employees.find(e => String(e.id) === String(owner))
@@ -265,7 +277,6 @@ export default function Backlog() {
       } else {
         showNotif('Task created automatically from backlog item!', 'success')
       }
-      // Refresh the list to show updated task info
       fetchItems()
     } catch (err) {
       showNotif(err.message || 'Failed to convert to task', 'error')
@@ -295,56 +306,7 @@ export default function Backlog() {
         </div>
       )}
 
-      {/* ════════ PIPELINE FLOW HEADER ════════ */}
-      <div className="bg-[var(--color-card-bg)] border border-[var(--color-card-border)] rounded-2xl p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Backlog Pipeline</h1>
-            <p className="text-sm text-[var(--color-text-secondary)] mt-1">Meetings → AI Detection → Review & Approve → Auto-create Tasks</p>
-          </div>
-          <div className="flex items-center gap-2 max-sm:w-full max-sm:flex-col">
-            <button
-              onClick={() => setShowAiGenerate(true)}
-              disabled={generating}
-              className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] hover:bg-[var(--color-card-border)] transition-colors border border-[var(--color-card-border)] disabled:opacity-50 max-sm:w-full"
-            >
-              <svg className={`w-4 h-4 shrink-0 ${generating ? 'animate-pulse' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-              </svg>
-              {generating ? 'Generating...' : 'Generate with AI'}
-            </button>
-            <button
-              onClick={() => setShowAdd(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[var(--color-primary-600)] text-white hover:bg-[var(--color-primary-700)] transition-colors shadow-lg shadow-[var(--color-primary-600)]/20 max-sm:w-full"
-            >
-              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Add Item
-            </button>
-          </div>
-        </div>
 
-        {/* ── Pipeline Steps ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-badge-bg)] border border-[var(--color-card-border)]">
-            <div className="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center text-lg shrink-0">🎙️</div>
-            <div>
-              <p className="text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">Step 1</p>
-              <p className="text-sm font-semibold text-[var(--color-text-primary)]">AI Detection</p>
-              <p className="text-xs text-[var(--color-text-secondary)]">Auto-generated from meetings</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--color-badge-bg)] border border-[var(--color-card-border)]">
-            <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center text-lg shrink-0">📋</div>
-            <div>
-              <p className="text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">Step 2</p>
-              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Task Created</p>
-              <p className="text-xs text-[var(--color-text-secondary)]">{convertedCount} tasks</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* ════════ TABS & FILTERS ════════ */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -419,18 +381,31 @@ export default function Backlog() {
             <option key={w.value} value={w.value}>{w.label}</option>
           ))}
         </select>
+        <select
+          value={assigneeFilter}
+          onChange={e => { setAssigneeFilter(e.target.value); setPage(1) }}
+          className="px-4 py-2 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all cursor-pointer"
+        >
+          <option value="">All Assignees</option>
+          {employees.map(emp => (
+            <option key={emp.id} value={emp.id}>{emp.name || emp.email}</option>
+          ))}
+        </select>
+        <label className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)]">
+          <span className="whitespace-nowrap text-xs font-medium uppercase tracking-wider">Created</span>
+        </label>
         <input
           type="date"
-          value={dateFrom}
-          onChange={e => { setDateFrom(e.target.value); setPage(1) }}
-          placeholder="Date from"
+          value={createdFrom}
+          onChange={e => { setCreatedFrom(e.target.value); setPage(1) }}
+          placeholder="From"
           className="px-4 py-2 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all"
         />
         <input
           type="date"
-          value={dateTo}
-          onChange={e => { setDateTo(e.target.value); setPage(1) }}
-          placeholder="Date to"
+          value={createdTo}
+          onChange={e => { setCreatedTo(e.target.value); setPage(1) }}
+          placeholder="To"
           className="px-4 py-2 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all"
         />
       </div>
@@ -487,6 +462,13 @@ export default function Backlog() {
                     {item.release_week && (
                       <span className="text-xs font-medium px-2.5 py-0.5 rounded-full border border-[var(--color-primary-500)]/30 bg-[var(--color-primary-500)]/10 text-[var(--color-primary-400)]">
                         {item.release_week}
+                      </span>
+                    )}
+                    {item.eta && (
+                      <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${
+                        new Date(item.eta) < new Date() ? 'border-red-500/30 bg-red-500/10 text-red-400' : 'border-orange-500/30 bg-orange-500/10 text-orange-300'
+                      }`}>
+                        {new Date(item.eta).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </span>
                     )}
                     {item.source === 'auto-capture' && (
@@ -624,6 +606,13 @@ export default function Backlog() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
+                    <input
+                      type="date"
+                      value={item.eta || ''}
+                      onChange={e => handleEtaChange(item.id, e.target.value)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all w-full"
+                      title="ETA"
+                    />
                   </div>
 
                   {/* ── Convert to Task button ── */}
@@ -647,23 +636,31 @@ export default function Backlog() {
                     </button>
                   )}
 
-                  {/* ── Delete ── */}
+                  {/* ── Close ── */}
                   <button
-                    onClick={() => handleDelete(item.id)}
-                    disabled={deletingId === item.id}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors border border-red-500/20 w-full disabled:opacity-50"
+                    onClick={() => handleClose(item.id)}
+                    disabled={closingId === item.id || item.status === 'Closed'}
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors border w-full disabled:opacity-50 ${
+                      item.status === 'Closed'
+                        ? 'bg-green-500/10 text-green-400 border-green-500/20 cursor-not-allowed'
+                        : 'bg-[var(--color-badge-bg)] text-[var(--color-text-secondary)] hover:bg-[var(--color-card-border)] border-[var(--color-card-border)]'
+                    }`}
                   >
-                    {deletingId === item.id ? (
+                    {closingId === item.id ? (
                       <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
+                    ) : item.status === 'Closed' ? (
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
                     ) : (
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     )}
-                    {deletingId === item.id ? 'Deleting...' : 'Delete'}
+                    {closingId === item.id ? 'Closing...' : item.status === 'Closed' ? 'Closed' : 'Close'}
                   </button>
                 </div>
               </div>
@@ -876,6 +873,15 @@ export default function Backlog() {
                 </select>
               </div>
               <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">ETA (Target Date)</label>
+                <input
+                  type="date"
+                  value={form.eta}
+                  onChange={e => setForm(prev => ({ ...prev, eta: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1.5">Image Attachment</label>
                 <div
                   onClick={() => fileInputRef.current?.click()}
@@ -971,6 +977,15 @@ export default function Backlog() {
                   <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Created</label>
                   <p className="text-[var(--color-text-primary)]">{formatDate(detailItem.created_at)}</p>
                 </div>
+                {detailItem.eta && (
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">ETA</label>
+                    <p className={`text-[var(--color-text-primary)] ${new Date(detailItem.eta) < new Date() ? 'text-red-400 font-medium' : ''}`}>
+                      {new Date(detailItem.eta).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {new Date(detailItem.eta) < new Date() && ' (Overdue)'}
+                    </p>
+                  </div>
+                )}
                 {detailItem.source_ref && (
                   <>
                     <div className="col-span-2">
