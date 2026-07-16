@@ -68,8 +68,8 @@ export default function Backlog() {
   const [tab, setTab] = useState('all') // 'pending' | 'converted' | 'all'
   const [releaseWeekFilter, setReleaseWeekFilter] = useState('')
   const [assigneeFilter, setAssigneeFilter] = useState('')
-  const [createdFrom, setCreatedFrom] = useState('')
-  const [createdTo, setCreatedTo] = useState('')
+  const [meetingFrom, setMeetingFrom] = useState('')
+  const [meetingTo, setMeetingTo] = useState('')
   const [convertingId, setConvertingId] = useState(null)
   const [closingId, setClosingId] = useState(null)
   const fileInputRef = useRef(null)
@@ -89,7 +89,7 @@ export default function Backlog() {
 
   function fetchItems() {
     setLoading(true)
-    api.getBacklogItems({ page, pageSize, search, priority: priorityFilter, status: statusFilter, tab, release_week: releaseWeekFilter, owner: assigneeFilter, created_from: createdFrom, created_to: createdTo })
+    api.getBacklogItems({ page, pageSize, search, priority: priorityFilter, status: statusFilter, tab, release_week: releaseWeekFilter, owner: assigneeFilter, date_from: meetingFrom, date_to: meetingTo })
       .then(data => {
         setItems(data.results || [])
         setTotalCount(data.count || 0)
@@ -106,7 +106,7 @@ export default function Backlog() {
     }).catch(() => {})
   }, [])
 
-  useEffect(() => { fetchItems() }, [page, pageSize, search, priorityFilter, statusFilter, tab, releaseWeekFilter, assigneeFilter, createdFrom, createdTo])
+  useEffect(() => { fetchItems() }, [page, pageSize, search, priorityFilter, statusFilter, tab, releaseWeekFilter, assigneeFilter, meetingFrom, meetingTo])
 
   useEffect(() => {
     if (!loading) api.autoRollWeeks().catch(() => {})
@@ -392,19 +392,19 @@ export default function Backlog() {
           ))}
         </select>
         <label className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)]">
-          <span className="whitespace-nowrap text-xs font-medium uppercase tracking-wider">Created</span>
+          <span className="whitespace-nowrap text-xs font-medium uppercase tracking-wider">Meeting</span>
         </label>
         <input
           type="date"
-          value={createdFrom}
-          onChange={e => { setCreatedFrom(e.target.value); setPage(1) }}
+          value={meetingFrom}
+          onChange={e => { setMeetingFrom(e.target.value); setPage(1) }}
           placeholder="From"
           className="px-4 py-2 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all"
         />
         <input
           type="date"
-          value={createdTo}
-          onChange={e => { setCreatedTo(e.target.value); setPage(1) }}
+          value={meetingTo}
+          onChange={e => { setMeetingTo(e.target.value); setPage(1) }}
           placeholder="To"
           className="px-4 py-2 rounded-xl text-sm bg-[var(--color-badge-bg)] text-[var(--color-text-primary)] border border-[var(--color-card-border)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]/40 transition-all"
         />
