@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react'
 import { api } from '../api'
 
 export default function Settings() {
-  const [apiKey, setApiKey] = useState('')
-  const [configured, setConfigured] = useState(false)
   const [saved, setSaved] = useState(false)
   const [session, setSession] = useState(null)
   const [gcConnected, setGcConnected] = useState(false)
   const [gcConnecting, setGcConnecting] = useState(false)
   const [emailEnabled, setEmailEnabled] = useState(true)
+  const [apiKeys, setApiKeys] = useState([])
+  const [newKey, setNewKey] = useState('')
+  const [keyCount, setKeyCount] = useState(0)
 
   useEffect(() => {
     api.getSession().then(data => {
@@ -16,10 +17,11 @@ export default function Settings() {
       setGcConnected(data.user?.google_calendar_connected ?? false)
     })
     api.getFathomConfig().then(data => {
-      setConfigured(data.configured)
       if (data.email_notifications_enabled !== undefined) {
         setEmailEnabled(data.email_notifications_enabled)
       }
+      setApiKeys((data.api_keys || []).map(k => ({ key: k.key, addedBy: k.added_by || '', isNew: false })))
+      setKeyCount(data.key_count || (data.api_keys || []).length || 0)
     })
   }, [])
 
@@ -36,11 +38,44 @@ export default function Settings() {
 
   const save = async (e) => {
     e.preventDefault()
-    await api.saveFathomConfig({ api_key: apiKey })
-    setConfigured(true)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-    setApiKey('')
+    try {
+      const data = await api.saveFathomConfig({
+        api_keys: apiKeys.map(k => ({ key: k.key, added_by: k.addedBy || '' })),
+      })
+      setApiKeys((data.api_keys || []).map(k => ({ key: k.key, addedBy: k.added_by || '', isNew: false })))
+      setKeyCount(data.key_count ?? apiKeys.length)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      setNewKey('')
+    } catch (err) {
+      alert('Failed to save keys: ' + (err.message || err))
+    }
+  }
+
+  const removeKey = (i) => {
+    const target = apiKeys[i]
+    const remaining = apiKeys.filter((_, idx) => idx !== i)
+    setApiKeys(remaining)
+    if (!target || target.isNew) return
+    api.saveFathomConfig({ api_keys: remaining.map(k => ({ key: k.key, added_by: k.addedBy || '' })) })
+      .then(() => setKeyCount(remaining.length))
+      .catch(err => {
+        alert('Failed to delete key: ' + (err.message || err))
+        api.getFathomConfig().then(d =>
+          setApiKeys((d.api_keys || []).map(x => ({ key: x.key, addedBy: x.added_by || '', isNew: false })))
+        )
+      })
+  }
+
+  const addKey = () => {
+    const trimmed = newKey.trim()
+    if (!trimmed) return
+    if (apiKeys.some(k => k.key === trimmed)) {
+      setNewKey('')
+      return
+    }
+    setApiKeys(prev => [...prev, { key: trimmed, addedBy: session?.user?.name || '', isNew: true }])
+    setNewKey('')
   }
 
   const SectionCard = ({ icon, title, desc, children, className = '' }) => (
@@ -114,8 +149,8 @@ export default function Settings() {
         >
           <ol className="space-y-2.5 text-sm text-[var(--color-text-secondary)]">
             {[
-              'Get your API key from Fathom Settings \u2192 API Access (fathom.video/customize)',
-              'Enter the key above \u2014 it will be used to authenticate with Fathom\'s API',
+              'Get an API key from each Fathom account \u2014 Fathom Settings \u2192 API Access (fathom.video/customize)',
+              'Add every account that joins your meetings below \u2014 sync searches all of them, so anyone who stays till the end gets captured',
               'Option A: Click "Sync from Fathom" on the Meetings page to pull all recorded meetings',
               'Option B: Set up the webhook URL in Fathom for real-time meeting data delivery',
               'When a meeting is processed, its action items become tasks assigned to matching employees',
@@ -191,42 +226,85 @@ export default function Settings() {
           )}
         </SectionCard>
 
-        {/* Fathom API Key */}
+        {/* Fathom API Keys */}
         <SectionCard
           icon="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-          title="Fathom API Key"
-          desc="API key for syncing meetings and action items"
+          title="Fathom API Keys"
+          desc="Add a key per Fathom account — sync finds whoever stayed in the meeting"
         >
-          {configured && (
+          {keyCount > 0 && (
             <div className="flex items-center gap-2 bg-[var(--color-primary-50)] text-[var(--color-primary-700)] px-4 py-2.5 rounded-xl mb-4 text-sm border border-[var(--color-primary-200)]">
               <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Fathom API is configured and active
+              {keyCount} Fathom account{keyCount > 1 ? 's' : ''} configured and active
             </div>
           )}
+
           <form onSubmit={save}>
-            <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">API Key</label>
+            <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Add Fathom Account API Key</label>
             <div className="flex gap-2">
               <input
-                placeholder={configured ? 'Enter new key to update...' : 'Enter your Fathom API key'}
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-                required
+                placeholder="Enter a Fathom API key (e.g. from another account)"
+                value={newKey}
+                onChange={e => setNewKey(e.target.value)}
                 className="flex-1 px-3.5 py-2.5 border border-[var(--color-card-border)] rounded-xl text-sm text-[var(--color-text-primary)] bg-[var(--color-badge-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)] focus:border-transparent transition-shadow placeholder:text-[var(--color-text-muted)]"
               />
-              <button type="submit" className="px-5 py-2.5 bg-[var(--color-primary-600)] text-white text-sm font-medium rounded-xl hover:bg-[var(--color-primary-700)] transition-all shadow-sm shadow-black/10">
-                {configured ? 'Update' : 'Save'}
+              <button type="button" onClick={addKey} className="px-4 py-2.5 bg-[var(--color-badge-bg)] text-[var(--color-text-secondary)] border border-[var(--color-card-border)] text-sm font-medium rounded-xl hover:bg-[var(--color-card-border)] transition-all">
+                Add
               </button>
             </div>
-            {saved && (
-              <p className="mt-2 flex items-center gap-1.5 text-sm text-[var(--color-primary-600)] font-medium">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                Saved successfully
-              </p>
+
+            {apiKeys.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {apiKeys.map((k, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3 bg-[var(--color-badge-bg)] border border-[var(--color-card-border)] rounded-xl px-3.5 py-2.5">
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-3.5 h-3.5 shrink-0 text-[var(--color-primary-600)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <code className="text-sm text-[var(--color-text-secondary)] font-mono break-all">{k.key}</code>
+                      </div>
+                      <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] mt-1 ml-5">
+                        <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                        </svg>
+                        {k.addedBy ? `Added by ${k.addedBy}` : (k.isNew ? 'Not saved yet' : 'Added by Unknown')}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeKey(i)}
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-red-600 transition-all shrink-0"
+                      title="Remove key"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
+
+            <div className="flex items-center gap-3 mt-3">
+              <button type="submit" className="px-5 py-2.5 bg-[var(--color-primary-600)] text-white text-sm font-medium rounded-xl hover:bg-[var(--color-primary-700)] transition-all shadow-sm shadow-black/10">
+                {keyCount > 0 ? 'Save Keys' : 'Save Key'}
+              </button>
+              {saved && (
+                <span className="flex items-center gap-1.5 text-sm text-[var(--color-primary-600)] font-medium">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Saved successfully
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-[var(--color-text-muted)] mt-3 leading-relaxed">
+              Add the API key for every Fathom account that joins your meetings. Sync will search all accounts,
+              so even if you leave early, the recording taken by whoever stayed to the end is picked up.
+            </p>
           </form>
         </SectionCard>
 
