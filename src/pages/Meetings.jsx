@@ -33,9 +33,12 @@ export default function Meetings() {
       setMeetings(updated)
       setNotification({
         type: 'success',
-        message: `✅ Synced ${result.synced || 0} meeting${result.synced !== 1 ? 's' : ''}${result.auto_generated_tasks > 0 ? ` — ${result.auto_generated_tasks} task${result.auto_generated_tasks !== 1 ? 's' : ''} auto-generated` : ''}`,
+        message: `✅ Synced ${result.synced || 0} meeting${result.synced !== 1 ? 's' : ''}${result.queued_jobs > 0 ? ` — ${result.queued_jobs} task-generation job${result.queued_jobs !== 1 ? 's' : ''} queued in background` : ''}`,
         timestamp: Date.now(),
       })
+      if (result.queued_jobs > 0 && Array.isArray(result.meeting_ids)) {
+        pollGeneration(result.meeting_ids)
+      }
     } catch (e) {
       setNotification({
         type: 'error',
@@ -47,6 +50,84 @@ export default function Meetings() {
     }
   }
 
+  const pollGeneration = async (meetingIds, onDone) => {
+    let remaining = Array.isArray(meetingIds) ? [...meetingIds] : [meetingIds]
+    const tick = async () => {
+      if (remaining.length === 0) {
+        if (onDone) onDone()
+        return
+      }
+      const next = []
+      await Promise.all(
+        remaining.map(async (id) => {
+          try {
+            const st = await api.getGenerationStatus(id)
+            if (st.status === 'done' || st.status === 'failed' || st.status === 'none') {
+              if (onDone) onDone(st, id)
+            } else {
+              next.push(id)
+            }
+          } catch (e) {
+            next.push(id)
+          }
+        })
+      )
+      remaining = next
+      if (remaining.length > 0) setTimeout(tick, 5000)
+      else if (onDone) onDone()
+    }
+    tick()
+  }
+
+  const generateTasks = async (id) => {
+    setGeneratingTaskId(id)
+    setNotification({
+      type: 'info',
+      message: '⏳ Task generation queued — running in the background. Waiting for it to finish...',
+      meetingId: id,
+      timestamp: Date.now(),
+    })
+    try {
+      const result = await api.generateTasksForMeeting(id)
+      if (!result.queued) {
+        setNotification({
+          type: 'error',
+          message: '⚠️ Unexpected response from server',
+          timestamp: Date.now(),
+        })
+        setGeneratingTaskId(null)
+        return
+      }
+      pollGeneration([id], (st, mid) => {
+        setGeneratingTaskId(null)
+        if (st && st.status === 'failed') {
+          setNotification({
+            type: 'error',
+            message: `❌ Task generation failed: ${st.error || 'Unknown error'}`,
+            meetingId: mid,
+            timestamp: Date.now(),
+          })
+        } else if (st && st.status === 'done') {
+          const emailsCount = st.emails_sent || 0
+          setNotification({
+            type: 'success',
+            message: `✅ ${st.task_count || 0} task${st.task_count !== 1 ? 's' : ''} generated${emailsCount > 0 ? ` — ${emailsCount} email${emailsCount !== 1 ? 's' : ''} sent` : ''}`,
+            meetingId: mid,
+            timestamp: Date.now(),
+          })
+        }
+        api.getMeetings().then(setMeetings)
+      })
+    } catch (e) {
+      setNotification({
+        type: 'error',
+        message: `❌ ${e.message || 'Failed to queue task generation'}`,
+        timestamp: Date.now(),
+      })
+      setGeneratingTaskId(null)
+    }
+  }
+
   const checkFathom = async (id) => {
     setCheckingId(id)
     try {
@@ -55,41 +136,6 @@ export default function Meetings() {
       setMeetings(updated)
     } finally {
       setCheckingId(null)
-    }
-  }
-
-  const generateTasks = async (id) => {
-    setGeneratingTaskId(id)
-    setNotification(null)
-    try {
-      const result = await api.generateTasksForMeeting(id)
-      if (result.status === 'exists' || result.status === 'created') {
-        const tasksCount = result.tasks?.length || 0
-        const emailsCount = result.emails_sent || 0
-        setNotification({
-          type: 'success',
-          message: `✅ ${tasksCount} task${tasksCount !== 1 ? 's' : ''} generated${emailsCount > 0 ? ` — ${emailsCount} email${emailsCount !== 1 ? 's' : ''} sent` : ''}`,
-          meetingId: id,
-          timestamp: Date.now(),
-        })
-        // Refresh meetings list to show updated task counts
-        const updated = await api.getMeetings()
-        setMeetings(updated)
-      } else {
-        setNotification({
-          type: 'error',
-          message: '⚠️ No tasks could be generated from this meeting',
-          timestamp: Date.now(),
-        })
-      }
-    } catch (e) {
-      setNotification({
-        type: 'error',
-        message: `❌ ${e.message || 'Failed to generate tasks'}`,
-        timestamp: Date.now(),
-      })
-    } finally {
-      setGeneratingTaskId(null)
     }
   }
 
@@ -328,8 +374,7 @@ export default function Meetings() {
                           disabled={generatingTaskId === m.id}
                           className="text-xs bg-[var(--color-primary-50)] text-[var(--color-primary-700)] px-3 py-1 rounded-full font-medium ring-1 ring-[var(--color-primary-200)] hover:bg-[var(--color-primary-100)] transition-colors disabled:opacity-50"
                         >
-                          {generatingTaskId === m.id ? 'Generating...' : 'Generate Tasks'}
-                        </button>
+                          {generatingTaskId === m.id ? 'Generating...' : 'Generate Tasks'}                        </button>
                       )}
                       {m.tasks?.length > 0 && (
                         <span className="text-xs bg-[var(--color-primary-50)] text-[var(--color-primary-700)] px-3 py-1 rounded-full font-medium ring-1 ring-[var(--color-primary-200)]">{m.tasks.length} tasks</span>

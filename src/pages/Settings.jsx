@@ -10,6 +10,10 @@ export default function Settings() {
   const [apiKeys, setApiKeys] = useState([])
   const [newKey, setNewKey] = useState('')
   const [keyCount, setKeyCount] = useState(0)
+  const [webhooks, setWebhooks] = useState([])
+  const [webhookUrl, setWebhookUrl] = useState('')
+  const [registeringWebhooks, setRegisteringWebhooks] = useState(false)
+  const [webhookMsg, setWebhookMsg] = useState(null)
 
   useEffect(() => {
     api.getSession().then(data => {
@@ -23,6 +27,11 @@ export default function Settings() {
       setApiKeys((data.api_keys || []).map(k => ({ key: k.key, addedBy: k.added_by || '', isNew: false })))
       setKeyCount(data.key_count || (data.api_keys || []).length || 0)
     })
+    api.listFathomWebhooks().then(data => {
+      const list = data.webhooks || []
+      setWebhooks(list)
+      if (list.length > 0) setWebhookUrl(list[0].destination_url || '')
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -76,6 +85,41 @@ export default function Settings() {
     }
     setApiKeys(prev => [...prev, { key: trimmed, addedBy: session?.user?.name || '', isNew: true }])
     setNewKey('')
+  }
+
+  const registerWebhooks = async () => {
+    const url = webhookUrl.trim()
+    if (!url) {
+      setWebhookMsg({ type: 'error', text: 'Enter the public webhook destination URL first' })
+      return
+    }
+    setRegisteringWebhooks(true)
+    setWebhookMsg(null)
+    try {
+      const data = await api.registerFathomWebhooks(url)
+      const results = data.results || []
+      setWebhooks(results.map(r => ({
+        masked: r.masked,
+        webhook_id: r.webhook_id,
+        destination_url: url,
+        secret_set: Boolean(r.secret),
+        status: r.status,
+        detail: r.detail,
+      })))
+      const created = results.filter(r => r.status === 'created').length
+      const exists = results.filter(r => r.status === 'exists').length
+      const failed = results.filter(r => r.status === 'error').length
+      setWebhookMsg({
+        type: failed ? 'error' : 'success',
+        text: failed
+          ? `Registered ${created} new, ${exists} already existed, ${failed} failed`
+          : `Webhook registered for ${created + exists} Fathom account${created + exists !== 1 ? 's' : ''}`,
+      })
+    } catch (err) {
+      setWebhookMsg({ type: 'error', text: 'Failed to register webhook: ' + (err.message || err) })
+    } finally {
+      setRegisteringWebhooks(false)
+    }
   }
 
   const SectionCard = ({ icon, title, desc, children, className = '' }) => (
@@ -306,6 +350,84 @@ export default function Settings() {
               so even if you leave early, the recording taken by whoever stayed to the end is picked up.
             </p>
           </form>
+        </SectionCard>
+
+        {/* Fathom Webhook (Auto-Sync) */}
+        <SectionCard
+          icon="M6.75 7.5l3 2.25a.75.75 0 000 1.5l-3 2.25m0-6a2.25 2.25 0 100 4.5m0-4.5a2.25 2.25 0 012.25 2.25m-2.25 4.5h9m0-9h2.25a2.25 2.25 0 012.25 2.25v.75m-4.5 6a2.25 2.25 0 102.25 3.75m-2.25-3.75h2.25a2.25 2.25 0 002.25-2.25V9m-9 4.5V21m0 0H4.5m4.5 0h4.5M18 12v4.5m0 4.5h-4.5M18 21h3"
+          title="Fathom Webhook (Auto-Sync)"
+          desc="Register a webhook so new Fathom meetings arrive automatically — no manual sync needed"
+        >
+          {webhooks.length > 0 && (
+            <div className="flex items-center gap-2 bg-[var(--color-primary-50)] text-[var(--color-primary-700)] px-4 py-2.5 rounded-xl mb-4 text-sm border border-[var(--color-primary-200)]">
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {webhooks.length} webhook{webhooks.length > 1 ? 's' : ''} registered for {webhooks.length} account{webhooks.length > 1 ? 's' : ''} — auto-sync active
+            </div>
+          )}
+
+          <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Destination URL (must be publicly reachable)</label>
+          <div className="flex gap-2">
+            <input
+              placeholder="https://your-backend.vercel.app/api/fathom/webhook/"
+              value={webhookUrl}
+              onChange={e => setWebhookUrl(e.target.value)}
+              className="flex-1 px-3.5 py-2.5 border border-[var(--color-card-border)] rounded-xl text-sm text-[var(--color-text-primary)] bg-[var(--color-badge-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-400)] focus:border-transparent transition-shadow placeholder:text-[var(--color-text-muted)]"
+            />
+            <button
+              type="button"
+              onClick={registerWebhooks}
+              disabled={registeringWebhooks}
+              className="px-4 py-2.5 bg-[var(--color-primary-600)] text-white text-sm font-medium rounded-xl hover:bg-[var(--color-primary-700)] disabled:opacity-50 transition-all"
+            >
+              {registeringWebhooks ? 'Registering...' : 'Register Webhook'}
+            </button>
+          </div>
+
+          {webhookMsg && (
+            <div className={`mt-3 text-sm px-3.5 py-2.5 rounded-xl border ${
+              webhookMsg.type === 'error'
+                ? 'bg-red-50 text-red-600 border-red-200'
+                : 'bg-[var(--color-primary-50)] text-[var(--color-primary-700)] border-[var(--color-primary-200)]'
+            }`}>
+              {webhookMsg.text}
+            </div>
+          )}
+
+          {webhooks.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {webhooks.map((w, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 bg-[var(--color-badge-bg)] border border-[var(--color-card-border)] rounded-xl px-3.5 py-2.5">
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${w.status === 'error' ? 'bg-red-500' : 'bg-[var(--color-primary-500)]'}`} />
+                      <code className="text-sm text-[var(--color-text-secondary)] font-mono break-all">{w.masked}</code>
+                    </div>
+                    <span className="text-xs text-[var(--color-text-muted)] mt-1 ml-4">
+                      {w.webhook_id ? `webhook ${w.webhook_id}` : 'no webhook'} · {w.destination_url}
+                      {w.detail ? ` · ${w.detail}` : ''}
+                    </span>
+                  </div>
+                  {w.secret_set && (
+                    <span className="inline-flex items-center gap-1 text-xs text-[var(--color-primary-600)] shrink-0">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Verified
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="text-xs text-[var(--color-text-muted)] mt-3 leading-relaxed">
+            Fathom only sends webhooks if one is registered — this is why meetings never appeared automatically.
+            Registering points Fathom at this app so every new recording is pushed to us instantly, then tasks are
+            generated in the background. The destination URL must be the public backend URL
+            (e.g. <code className="text-[var(--color-text-secondary)]">https://your-backend.vercel.app/api/fathom/webhook/</code>).
+          </p>
         </SectionCard>
 
         {/* Email Notifications */}

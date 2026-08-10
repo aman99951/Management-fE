@@ -50,6 +50,11 @@ export const api = {
     request(`/api/meetings/${id}/generate_tasks/`, { method: 'POST' }),
   batchGenerateTasks: () =>
     request('/api/meetings/batch_generate_tasks/', { method: 'POST' }),
+  getGenerationStatus: (meetingId) =>
+    request(`/api/tasks/generation-status/?meeting_id=${meetingId}`),
+  listFathomWebhooks: () => request('/api/fathom/webhook/register/'),
+  registerFathomWebhooks: (destinationUrl) =>
+    request('/api/fathom/webhook/register/', { method: 'POST', body: JSON.stringify({ destination_url: destinationUrl }) }),
 
   getTasks: () => request('/api/tasks/'),
   updateTaskStatus: (id, status) =>
