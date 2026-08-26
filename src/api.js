@@ -55,6 +55,8 @@ export const api = {
   listFathomWebhooks: () => request('/api/fathom/webhook/register/'),
   registerFathomWebhooks: (destinationUrl) =>
     request('/api/fathom/webhook/register/', { method: 'POST', body: JSON.stringify({ destination_url: destinationUrl }) }),
+  deleteFathomWebhook: (webhookId, apiKey) =>
+    request('/api/fathom/webhook/register/', { method: 'DELETE', body: JSON.stringify({ webhook_id: webhookId, api_key: apiKey }) }),
 
   getTasks: () => request('/api/tasks/'),
   updateTaskStatus: (id, status) =>
